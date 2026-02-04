@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function getOrgId() {
+      // Prefer custom claim, fallback to DB read
+      return request.auth.token.orgId != null ? request.auth.token.orgId : getUserData().orgId;
+    }
+    
+    function isOrgMember(orgId) {
+      let userData = getUserData();
+      // User must have the orgId AND be active (or have no status field for legacy support)
+      return userData.orgId == orgId && (userData.status == 'active' || !("status" in userData));
+    }
+    
+    function getRole() {
+      // Prefer custom claim, fallback to DB read
+      return request.auth.token.role != null ? request.auth.token.role : getUserData().role;
+    }
+    
+    function isAdmin() {
+      return getRole() == 'admin';
+    }
+    
+    function isManager() {
+      return getRole() == 'manager';
+    }
+
+    match /organizations/{orgId} {
+      allow list: if isSignedIn(); // Allow listing for "Join Organization" flow
+      allow get: if isSignedIn() && isOrgMember(orgId);
+      allow create: if isSignedIn(); // Allow anyone to create an org (onboarding)
+      allow update: if isSignedIn() && isOrgMember(orgId) && isAdmin();
+    }
+
+    match /users/{userId} {
+      // User can read/write own profile. Org members can read profiles in same org. Admins can update roles.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isOrgMember(resource.data.orgId));
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // User can update own profile BUT cannot change role or orgId
+      // Admin of the SAME org can update the user (e.g. change role)
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && 
+         request.resource.data.role == resource.data.role && 
+         request.resource.data.orgId == resource.data.orgId) || 
+        (isOrgMember(resource.data.orgId) && isAdmin())
+      );
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isSignedIn() && isOrgMember(resource.data.orgId);
+      allow create: if isSignedIn() && isOrgMember(request.resource.data.orgId);
+      allow update, delete: if isSignedIn() && isOrgMember(resource.data.orgId);
+    }
+
+    match /timeLogs/{logId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        (isOrgMember(resource.data.orgId) && (isAdmin() || isManager()))
+      );
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId && isOrgMember(request.resource.data.orgId);
+      allow update: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    match /leaveRequests/{requestId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        (isOrgMember(resource.data.orgId) && (isAdmin() || isManager()))
+      );
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId && isOrgMember(request.resource.data.orgId);
+      allow update: if isSignedIn() && (
+        (isOrgMember(resource.data.orgId) && (isAdmin() || isManager())) ||
+        (request.auth.uid == resource.data.userId && resource.data.status == 'PENDING')
+      );
+    }
+
+    match /expenseClaims/{claimId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        (isOrgMember(resource.data.orgId) && (isAdmin() || isManager()))
+      );
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId && isOrgMember(request.resource.data.orgId);
+      allow update: if isSignedIn() && (
+        (isOrgMember(resource.data.orgId) && (isAdmin() || isManager())) ||
+        (request.auth.uid == resource.data.userId && resource.data.status == 'PENDING')
+      );
+    }
+  }
+}
