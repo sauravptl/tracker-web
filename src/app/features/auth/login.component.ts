@@ -13,7 +13,8 @@ import { firstValueFrom } from 'rxjs';
   template: `
     <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
       <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-        <div>
+        <div class="flex flex-col items-center">
+          <img src="logo.png" alt="TrackFlow Logo" class="h-16 w-auto mb-4">
           <h2 class="mt-2 text-center text-3xl font-extrabold text-gray-900">Login to TrackFlow</h2>
           <p class="mt-2 text-center text-sm text-gray-600">
             Welcome back! Please sign in to your account.

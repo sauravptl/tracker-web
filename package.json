@@ -11,13 +11,20 @@
     "test:rules": "firebase emulators:exec --only firestore \"jest\"",
     "electron": "electron .",
     "electron:serve": "concurrently -k \"ng serve\" \"npm run electron -- --serve\"",
-    "electron:build": "ng build --base-href ./ && electron-builder"
+    "electron:build": "ng build --configuration production,electron && electron-builder"
   },
   "build": {
     "appId": "com.tracker.web",
     "productName": "Tracker Web",
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "public/icon.png"
+    },
+    "win": {
+      "icon": "public/icon.png"
+    },
+    "linux": {
+      "icon": "public/icon.png"
     },
     "directories": {
       "output": "release"

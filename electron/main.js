@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, globalShortcut } = require('electron');
 const path = require('path');
 const url = require('url');
 
@@ -6,41 +6,46 @@ let win;
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 800,
+    icon: path.join(__dirname, '../dist/tracker-web/browser/icon.png'),
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false // For simplicity in this migration, though contextIsolation: true is recommended for security
+      nodeIntegration: false, // Recommended for security
+      contextIsolation: true,  // Recommended for security
+      webSecurity: true
     }
   });
 
   // Load the Angular app
-  // In development, we might want to load the serve URL, but for a build we load the file
-  // Check if we are in dev mode (passed via args or env)
   const args = process.argv.slice(1);
   const serve = args.some(val => val === '--serve');
 
   if (serve) {
     win.loadURL('http://localhost:4200');
+    // Open DevTools in dev mode
+    win.webContents.openDevTools();
   } else {
-    win.loadURL(
-      url.format({
-        pathname: path.join(__dirname, '../dist/tracker-web/browser/index.html'),
-        protocol: 'file:',
-        slashes: true
-      })
-    );
+    win.loadFile(path.join(__dirname, '../dist/tracker-web/browser/index.html'));
   }
 
-  // Open the DevTools.
-  // win.webContents.openDevTools();
+  // Handle load failures
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
 
   win.on('closed', () => {
     win = null;
   });
 }
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  createWindow();
+
+  // Register a shortcut to toggle DevTools (Cmd+Option+I on Mac, Ctrl+Shift+I on Win/Linux)
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    if (win) win.webContents.toggleDevTools();
+  });
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
