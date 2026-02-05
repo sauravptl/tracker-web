@@ -72,4 +72,15 @@ export class TimeLogService {
     );
     return collectionData(q, { idField: 'id' }) as Observable<TimeLog[]>;
   }
+
+  getLogsInRange(userId: string, startDate: Date, endDate: Date): Observable<TimeLog[]> {
+    const q = query(
+      this.timeLogsCollection,
+      where('userId', '==', userId),
+      where('startTime', '>=', startDate),
+      where('startTime', '<=', endDate),
+      orderBy('startTime', 'desc')
+    );
+    return collectionData(q, { idField: 'id' }) as Observable<TimeLog[]>;
+  }
 }

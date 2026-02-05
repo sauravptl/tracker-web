@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { TimeLogService } from '../../../../core/services/time-log.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { UserService } from '../../../../core/services/user.service';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-timer-card',
@@ -107,6 +107,7 @@ export class TimerCardComponent implements OnInit, OnDestroy {
   private intervalId: any;
   private startTime: Date | null = null;
   private currentOrgId: string | undefined;
+  private profileSubscription: Subscription | null = null;
 
   display = computed(() => this.formatDuration(this.seconds()));
 
@@ -116,24 +117,47 @@ export class TimerCardComponent implements OnInit, OnDestroy {
   });
 
   constructor() {
-    effect(async () => {
+    effect(() => {
       const user = this.authService.userSignal();
+
+      // Clean up existing subscription
+      if (this.profileSubscription) {
+        this.profileSubscription.unsubscribe();
+        this.profileSubscription = null;
+      }
+
       if (user) {
         this.restoreLocalState(user.uid);
-        try {
-          const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
-          this.currentOrgId = profile?.orgId;
 
-          // Sync state from profile if available (source of truth)
-          if (profile?.isClockedIn && profile?.currentSessionStart) {
-            this.startTime = profile.currentSessionStart.toDate();
-            this.isActive.set(true);
-            this.sessionType.set(profile.currentSessionType || 'work');
-            this.startTicker();
-          }
-        } catch (error) {
-          console.error('Error fetching profile in TimerCard:', error);
-        }
+        this.profileSubscription = this.userService.getUserProfileStream(user.uid).subscribe({
+          next: (profile) => {
+            if (!profile) return;
+            this.currentOrgId = profile.orgId;
+
+            // Sync state from profile (source of truth)
+            if (profile.isClockedIn && profile.currentSessionStart) {
+              const serverStart = profile.currentSessionStart.toDate
+                ? profile.currentSessionStart.toDate()
+                : new Date(profile.currentSessionStart);
+
+              // Only update if different to avoid jitter or if not currently active
+              if (!this.isActive() || !this.startTime || Math.abs(serverStart.getTime() - this.startTime.getTime()) > 1000) {
+                this.startTime = serverStart;
+                this.isActive.set(true);
+                this.sessionType.set(profile.currentSessionType || 'work');
+                this.startTicker();
+                this.saveLocalState(user.uid);
+              }
+            } else if (this.isActive()) {
+              // Server says not clocked in, but local thinks we are.
+              // Force stop to sync with server.
+              this.stopTicker();
+              this.isActive.set(false);
+              this.clearLocalState(user.uid);
+            }
+          },
+          error: (error) => console.error('Error in profile stream:', error)
+        });
       }
     });
   }
@@ -144,6 +168,9 @@ export class TimerCardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.stopTicker();
+    if (this.profileSubscription) {
+      this.profileSubscription.unsubscribe();
+    }
   }
 
   async toggleWork() {
@@ -196,14 +223,19 @@ export class TimerCardComponent implements OnInit, OnDestroy {
     this.clearLocalState(user.uid);
     this.seconds.set(0);
 
-    if (this.currentOrgId) {
-      // 1. Update User Status
+    // 1. Update User Status - Always do this to stop the "clock"
+    try {
       await this.userService.updateUser(user.uid, {
         isClockedIn: false,
         currentSessionStart: null,
-        currentSessionType: undefined // Clear session type
+        currentSessionType: null
       });
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      alert('Failed to stop session. Please try again.');
+    }
 
+    if (this.currentOrgId) {
       // 2. Save Time Log
       await this.timeLogService.createTimeLog({
         userId: user.uid,
@@ -214,6 +246,8 @@ export class TimerCardComponent implements OnInit, OnDestroy {
         type: type,
         taskId: ''
       });
+    } else {
+      console.warn('No organization ID found. Time log was not saved.');
     }
   }
 
