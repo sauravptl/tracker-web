@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Firestore, collection, doc, getDoc, setDoc, updateDoc, query, where, collectionData, CollectionReference } from '@angular/fire/firestore';
+import { Firestore, collection, doc, getDoc, setDoc, updateDoc, query, where, collectionData, docData, CollectionReference } from '@angular/fire/firestore';
 import { Observable, from } from 'rxjs';
 
 export interface UserProfile {
@@ -11,8 +11,8 @@ export interface UserProfile {
   orgId?: string;
   deptId?: string;
   isClockedIn?: boolean;
-  currentSessionStart?: any; // Timestamp or Date
-  currentSessionType?: 'work' | 'break';
+  currentSessionStart?: any | null; // Timestamp or Date
+  currentSessionType?: 'work' | 'break' | null;
 }
 
 @Injectable({
@@ -37,6 +37,11 @@ export class UserService {
   getUserProfile(uid: string): Observable<UserProfile | undefined> {
     const docRef = doc(this.usersCollection, uid);
     return from(getDoc(docRef).then(snap => snap.data() as UserProfile));
+  }
+
+  getUserProfileStream(uid: string): Observable<UserProfile | undefined> {
+    const docRef = doc(this.usersCollection, uid);
+    return docData(docRef) as Observable<UserProfile>;
   }
 
   getOrgUsers(orgId: string): Observable<UserProfile[]> {

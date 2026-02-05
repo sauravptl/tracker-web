@@ -49,3 +49,6 @@ firebase.json
 
 # Firebase Functions
 functions/node_modules
+
+# release
+release

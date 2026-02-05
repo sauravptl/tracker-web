@@ -1,12 +1,13 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
 import { AuthService } from '../../core/auth/auth.service';
 import { TaskService } from '../../core/services/task.service';
 import { TimeLogService } from '../../core/services/time-log.service';
-import { UserService } from '../../core/services/user.service';
-import { firstValueFrom } from 'rxjs';
+import { UserService, UserProfile } from '../../core/services/user.service';
+import { LeaveRequestService, LeaveRequest } from '../../core/services/leave-request.service';
+import { firstValueFrom, Subscription, interval } from 'rxjs';
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { TimerCardComponent } from './components/timer-card/timer-card.component';
 
@@ -81,7 +82,7 @@ const staggerFadeIn = trigger('staggerFadeIn', [
           </div>
           <div class="mt-4 flex items-center justify-between text-sm">
             <div class="w-full bg-gray-100 rounded-full h-2 mr-3 overflow-hidden">
-               <div class="bg-emerald-500 h-2 rounded-full transition-all duration-1000" [style.width.%]="(todayDurationSeconds() / (8 * 3600)) * 100"></div>
+               <div class="bg-emerald-500 h-2 rounded-full transition-all duration-1000" [style.width.%]="(totalTodaySeconds() / (8 * 3600)) * 100"></div>
             </div>
             <span class="text-gray-500 whitespace-nowrap">Goal: 8h</span>
           </div>
@@ -97,80 +98,134 @@ const staggerFadeIn = trigger('staggerFadeIn', [
           </div>
           <div class="flex items-baseline gap-2">
             <p class="text-4xl font-bold text-gray-900 tracking-tight">{{ activeTeamMembers() }}</p>
-            <span class="text-sm text-gray-500 font-medium">Active</span>
+            <span class="text-sm text-gray-500 font-medium">Working</span>
           </div>
           <div class="mt-4 flex items-center text-sm">
-            <span class="relative flex h-3 w-3 mr-2">
+            <span class="relative flex h-3 w-3 mr-2" *ngIf="activeTeamMembers() > 0">
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
             </span>
-            <span class="text-indigo-600 font-medium">Online Now</span>
+            <span class="text-indigo-600 font-medium">{{ activeTeamMembers() }} Online Now</span>
           </div>
         </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8" @staggerFadeIn>
         <!-- Weekly Activity Chart -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2 transition-shadow hover:shadow-md">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2 transition-shadow hover:shadow-md flex flex-col">
           <div class="flex items-center justify-between mb-6">
             <h3 class="text-xl font-bold text-gray-900">Weekly Activity</h3>
-            <button class="text-sm text-blue-600 hover:text-blue-700 font-medium">View Report</button>
+            <!-- <button class="text-sm text-blue-600 hover:text-blue-700 font-medium">View Report</button> -->
           </div>
-          <div class="h-80 w-full">
+          <div class="h-64 w-full mb-6">
             <canvas baseChart
               [data]="barChartData"
               [options]="barChartOptions"
               [type]="'bar'">
             </canvas>
           </div>
+
+          <!-- Recent Activity Section -->
+           <div class="border-t border-gray-100 pt-6">
+            <h4 class="text-lg font-bold text-gray-900 mb-4">Recent Activity</h4>
+            <div class="space-y-4">
+              <div *ngFor="let log of recentLogs()" class="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                    [ngClass]="log.type === 'work' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'">
+                    <svg *ngIf="log.type === 'work'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    <svg *ngIf="log.type === 'break'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  </div>
+                  <div>
+                    <p class="font-medium text-gray-900">{{ log.type === 'work' ? 'Work Session' : 'Break' }}</p>
+                    <p class="text-xs text-gray-500">{{ log.startTime.toDate() | date:'mediumDate' }} • {{ log.startTime.toDate() | date:'shortTime' }} - {{ log.endTime.toDate() | date:'shortTime' }}</p>
+                  </div>
+                </div>
+                <div class="font-mono font-medium text-gray-700">
+                  {{ formatDuration(log.duration) }}
+                </div>
+              </div>
+              <div *ngIf="recentLogs().length === 0" class="text-center text-gray-500 py-4">
+                No recent activity found.
+              </div>
+            </div>
+           </div>
         </div>
 
-        <!-- Active Users List (For Managers/Admins) -->
+        <!-- Team Status List -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col h-full transition-shadow hover:shadow-md">
-          <h3 class="text-xl font-bold mb-6 text-gray-900">Who's Working</h3>
-          <div *ngIf="activeTeamMembers() > 0; else noActive" class="space-y-4 flex-1 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
-            <div *ngFor="let user of activeUsers()" class="group flex items-center space-x-4 p-3 rounded-xl transition-all hover:bg-gray-50 border border-transparent hover:border-gray-200">
+          <h3 class="text-xl font-bold mb-6 text-gray-900">Team Status</h3>
+          <div class="space-y-4 flex-1 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
+            <div *ngFor="let user of teamUsersWithStatus()" class="group flex items-center space-x-4 p-3 rounded-xl transition-all hover:bg-gray-50 border border-transparent hover:border-gray-200">
               <div class="relative">
-                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700 font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm group-hover:scale-105 transition-transform"
+                  [ngClass]="{
+                    'bg-green-500': user.status === 'Working',
+                    'bg-amber-500': user.status === 'On Break',
+                    'bg-red-500': user.status === 'On Leave',
+                    'bg-gray-400': user.status === 'Offline'
+                  }">
                   {{ (user.displayName || user.email || '?').substring(0, 2).toUpperCase() }}
                 </div>
-                <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
+                <div class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white"
+                  [ngClass]="{
+                    'bg-green-500': user.status === 'Working',
+                    'bg-amber-500': user.status === 'On Break',
+                    'bg-red-500': user.status === 'On Leave',
+                    'bg-gray-400': user.status === 'Offline'
+                  }"></div>
               </div>
               <div class="flex-1 min-w-0">
                 <span class="block text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{{ user.displayName || user.email }}</span>
-                <span *ngIf="user.currentSessionStart" class="text-xs text-gray-500 flex items-center mt-0.5">
-                  <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  Clocked in {{ user.currentSessionStart.toDate() | date:'shortTime' }}
-                </span>
+                
+                <!-- Status Badge -->
+                <div class="mt-1 flex items-center">
+                   <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                    [ngClass]="{
+                      'bg-green-100 text-green-800': user.status === 'Working',
+                      'bg-amber-100 text-amber-800': user.status === 'On Break',
+                      'bg-red-100 text-red-800': user.status === 'On Leave',
+                      'bg-gray-100 text-gray-800': user.status === 'Offline'
+                    }">
+                    {{ user.status }}
+                   </span>
+                   <span *ngIf="user.status === 'Working' && user.currentSessionStart" class="text-xs text-gray-400 ml-2">
+                     Since {{ user.currentSessionStart.toDate() | date:'shortTime' }}
+                   </span>
+                </div>
               </div>
+            </div>
+            
+            <div *ngIf="teamUsersWithStatus().length === 0" class="text-center py-8 text-gray-500">
+              No team members found.
             </div>
           </div>
-          <ng-template #noActive>
-            <div class="flex-1 flex flex-col items-center justify-center text-center py-12">
-              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-50 mb-4 text-gray-300">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
-              </div>
-              <p class="text-gray-500 font-medium">No active sessions</p>
-              <p class="text-gray-400 text-sm mt-1">Team members will appear here when they clock in.</p>
-            </div>
-          </ng-template>
         </div>
       </div>
     </div>
   `
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnDestroy {
   private authService = inject(AuthService);
   private taskService = inject(TaskService);
   private timeLogService = inject(TimeLogService);
   private userService = inject(UserService);
+  private leaveService = inject(LeaveRequestService);
 
   myTasksCount = signal(0);
   myTodoCount = signal(0);
-  todayDurationSeconds = signal(0);
+  todayLogsDuration = signal(0);
+  currentSessionDuration = signal(0);
+
+  recentLogs = signal<any[]>([]);
   activeTeamMembers = signal(0);
-  activeUsers = signal<any[]>([]);
+
+  // All team users with computed status
+  teamUsersWithStatus = signal<any[]>([]);
+
   currentDate = new Date();
+  private timerSubscription: Subscription | null = null;
+  private currentSessionStart: Date | null = null;
 
   // Chart Data
   public barChartOptions: ChartOptions<'bar'> = {
@@ -220,11 +275,11 @@ export class DashboardComponent {
     ]
   };
 
+  totalTodaySeconds = computed(() => this.todayLogsDuration() + this.currentSessionDuration());
+
   todayDurationDisplay = computed(() => {
-    const totalSeconds = this.todayDurationSeconds();
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
+    const totalSeconds = this.totalTodaySeconds();
+    return this.formatDuration(totalSeconds);
   });
 
   constructor() {
@@ -237,32 +292,136 @@ export class DashboardComponent {
           this.myTodoCount.set(tasks.filter(t => t.status !== 'DONE').length);
         });
 
-        // 2. Fetch Today's Time Logs Stats
+        // 2. Fetch Today's Time Logs Stats (Completed Logs)
         this.timeLogService.getTodayLogs(user.uid).subscribe(logs => {
           const total = logs.reduce((acc, log) => acc + log.duration, 0);
-          this.todayDurationSeconds.set(total);
+          this.todayLogsDuration.set(total);
         });
 
-        // 3. Fetch Week's Logs for Chart
+        // 3. Fetch Recent Logs
+        this.timeLogService.getRecentLogs(user.uid, 5).subscribe(logs => {
+          this.recentLogs.set(logs);
+        });
+
+        // 4. Fetch Week's Logs for Chart
         this.timeLogService.getWeekLogs(user.uid).subscribe(logs => {
           this.processChartData(logs);
         });
 
-        // 4. Fetch Team Status
+        // 5. Fetch User Profile to get Current Session (for Live Hours Today)
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
+          if (profile?.isClockedIn && profile.currentSessionStart) {
+            this.currentSessionStart = profile.currentSessionStart.toDate
+              ? profile.currentSessionStart.toDate()
+              : new Date(profile.currentSessionStart);
+
+            // Start local timer to update dashboard view
+            this.startDashboardTimer();
+          } else {
+            this.currentSessionStart = null;
+            this.currentSessionDuration.set(0);
+            this.stopDashboardTimer();
+          }
+        });
+
+        // 6. Fetch Team Status & Who's Working
         try {
           const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
           if (profile?.orgId) {
-            this.userService.getOrgUsers(profile.orgId).subscribe(users => {
-              const active = users.filter(u => u.isClockedIn);
-              this.activeTeamMembers.set(active.length);
-              this.activeUsers.set(active);
+            // Combine Users + Leaves
+            const users$ = this.userService.getOrgUsers(profile.orgId);
+            const leaves$ = this.leaveService.getOrgRequests(profile.orgId);
+
+            // Using simple subscription for now, could use forkJoin or combineLatest if strict sync needed
+            users$.subscribe(async (users) => {
+              // We need leaves to determine status
+              const leaves = await firstValueFrom(leaves$); // Get current snapshot of leaves
+
+              const usersWithStatus = users.map(u => {
+                let status = 'Offline';
+                if (u.isClockedIn) {
+                  status = u.currentSessionType === 'break' ? 'On Break' : 'Working';
+                } else {
+                  // Check if on active leave
+                  const activeLeave = leaves.find(l =>
+                    l.userId === u.uid &&
+                    l.status === 'APPROVED' &&
+                    this.isDateInRange(new Date(), l.startDate, l.endDate)
+                  );
+                  if (activeLeave) {
+                    status = 'On Leave';
+                  }
+                }
+                return { ...u, status };
+              });
+
+              // Sort: Working > Break > Leave > Offline
+              usersWithStatus.sort((a, b) => {
+                const score = (status: string) => {
+                  if (status === 'Working') return 3;
+                  if (status === 'On Break') return 2;
+                  if (status === 'On Leave') return 1;
+                  return 0;
+                };
+                return score(b.status) - score(a.status);
+              });
+
+              this.teamUsersWithStatus.set(usersWithStatus);
+              this.activeTeamMembers.set(usersWithStatus.filter(u => u.status === 'Working' || u.status === 'On Break').length);
             });
           }
         } catch (error) {
-          console.error('Error fetching user profile for dashboard:', error);
+          console.error('Error fetching data for dashboard:', error);
         }
       }
     });
+  }
+
+  ngOnDestroy() {
+    this.stopDashboardTimer();
+  }
+
+  private startDashboardTimer() {
+    this.stopDashboardTimer();
+    this.updateCurrentSessionDuration(); // Initial call
+    this.timerSubscription = interval(60000).subscribe(() => { // Update every minute
+      this.updateCurrentSessionDuration();
+    });
+  }
+
+  private stopDashboardTimer() {
+    if (this.timerSubscription) {
+      this.timerSubscription.unsubscribe();
+      this.timerSubscription = null;
+    }
+  }
+
+  private updateCurrentSessionDuration() {
+    if (this.currentSessionStart) {
+      const now = new Date();
+      const diff = Math.floor((now.getTime() - this.currentSessionStart.getTime()) / 1000);
+      this.currentSessionDuration.set(diff > 0 ? diff : 0);
+    }
+  }
+
+  formatDuration(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    // const s = seconds % 60; // Don't show seconds for general activity
+    return `${h}h ${m}m`;
+  }
+
+  private isDateInRange(date: Date, start: any, end: any): boolean {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+
+    const s = start.toDate ? start.toDate() : new Date(start);
+    s.setHours(0, 0, 0, 0);
+
+    const e = end.toDate ? end.toDate() : new Date(end);
+    e.setHours(23, 59, 59, 999);
+
+    return d >= s && d <= e;
   }
 
   processChartData(logs: any[]) {
@@ -280,7 +439,7 @@ export class DashboardComponent {
 
     // Aggregate logs
     logs.forEach(log => {
-      const d = log.startTime.toDate();
+      const d = log.startTime.toDate ? log.startTime.toDate() : new Date(log.startTime);
       const dayLabel = days[d.getDay()];
       if (dataMap.has(dayLabel)) {
         dataMap.set(dayLabel, (dataMap.get(dayLabel) || 0) + (log.duration / 3600));
