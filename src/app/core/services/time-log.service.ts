@@ -10,6 +10,7 @@ export interface TimeLog {
   endTime?: any; // Timestamp or Date
   duration: number; // in seconds
   orgId: string;
+  type?: 'work' | 'break';
 }
 
 @Injectable({

@@ -44,6 +44,15 @@ export class OrganizationService {
     return collectionData(this.orgsCollection, { idField: 'id' }) as Observable<Organization[]>;
   }
 
+  searchOrganizations(term: string): Observable<Organization[]> {
+    const q = query(
+      this.orgsCollection,
+      where('name', '>=', term),
+      where('name', '<=', term + '\uf8ff')
+    );
+    return collectionData(q, { idField: 'id' }) as Observable<Organization[]>;
+  }
+
   async updateOrganization(orgId: string, data: Partial<Organization>): Promise<void> {
     const docRef = doc(this.firestore, 'organizations', orgId);
     return updateDoc(docRef, data);

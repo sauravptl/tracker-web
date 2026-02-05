@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Firestore, collection, doc, addDoc, updateDoc, deleteDoc, query, where, collectionData, CollectionReference } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'QA_TEST' | 'DONE' | 'COMPLETED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface Task {

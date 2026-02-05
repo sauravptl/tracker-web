@@ -21,6 +21,19 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
         <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="mt-8 space-y-6">
           <div class="space-y-4">
             <div>
+              <label class="block text-sm font-medium text-gray-700" for="fullName">Full Name</label>
+              <div class="mt-1">
+                <input 
+                  [class.border-red-500]="registerForm.get('fullName')?.invalid && registerForm.get('fullName')?.touched"
+                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" 
+                  id="fullName" type="text" formControlName="fullName" placeholder="John Doe">
+              </div>
+              <div *ngIf="registerForm.get('fullName')?.invalid && registerForm.get('fullName')?.touched" class="text-red-500 text-xs mt-1">
+                <span *ngIf="registerForm.get('fullName')?.errors?.['required']">Full Name is required.</span>
+              </div>
+            </div>
+
+            <div>
               <label class="block text-sm font-medium text-gray-700" for="email">Email Address</label>
               <div class="mt-1">
                 <input 
@@ -71,19 +84,21 @@ export class RegisterComponent {
   private fb = inject(FormBuilder);
 
   registerForm = this.fb.group({
+    fullName: ['', [Validators.required]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]]
   });
 
   onSubmit() {
     if (this.registerForm.valid) {
-      const { email, password } = this.registerForm.value;
+      const { email, password, fullName } = this.registerForm.value;
       this.authService.register(email!, password!).subscribe({
         next: async (userCredential) => {
           try {
             await this.userService.createUserProfile({
               uid: userCredential.user.uid,
               email: email!,
+              displayName: fullName!,
               role: 'employee', // Default role, promoted to admin if they create org
             });
             this.router.navigate(['/onboarding']);

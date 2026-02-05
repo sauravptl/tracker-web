@@ -22,8 +22,8 @@ import { filter } from 'rxjs/operators';
       
       <div class="flex items-center space-x-4">
         <!-- User Dropdown (Simplified) -->
-        <div class="relative group">
-          <button class="flex items-center space-x-2 focus:outline-none p-1 rounded-full hover:bg-gray-50 transition-colors">
+        <div class="relative">
+          <button (click)="toggleUserMenu()" class="flex items-center space-x-2 focus:outline-none p-1 rounded-full hover:bg-gray-50 transition-colors">
             <div class="h-8 w-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold shadow-sm">
               {{ userInitials }}
             </div>
@@ -34,7 +34,7 @@ import { filter } from 'rxjs/operators';
           </button>
           
           <!-- Dropdown Menu -->
-          <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 hidden group-hover:block border border-gray-100 ring-1 ring-black ring-opacity-5 transform origin-top-right transition-all duration-200">
+          <div *ngIf="showUserMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 border border-gray-100 ring-1 ring-black ring-opacity-5 transform origin-top-right transition-all duration-200">
             <div class="px-4 py-2 border-b border-gray-50 md:hidden">
               <p class="text-sm font-medium text-gray-900 truncate">{{ userEmail }}</p>
             </div>
@@ -59,6 +59,11 @@ export class TopbarComponent implements OnInit {
   pageTitle = 'Dashboard';
   userInitials = 'U';
   userEmail = '';
+  showUserMenu = false;
+
+  toggleUserMenu() {
+    this.showUserMenu = !this.showUserMenu;
+  }
 
   ngOnInit() {
     // Listen to route changes for title

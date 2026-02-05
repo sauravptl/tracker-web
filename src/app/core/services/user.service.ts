@@ -12,6 +12,7 @@ export interface UserProfile {
   deptId?: string;
   isClockedIn?: boolean;
   currentSessionStart?: any; // Timestamp or Date
+  currentSessionType?: 'work' | 'break';
 }
 
 @Injectable({

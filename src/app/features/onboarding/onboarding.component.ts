@@ -1,7 +1,9 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, FormControl } from '@angular/forms';
 import { Router } from '@angular/router';
+import { debounceTime, distinctUntilChanged, switchMap, tap, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { OrganizationService, Organization } from '../../core/services/organization.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -18,7 +20,7 @@ import { AuthService } from '../../core/auth/auth.service';
             {{ mode() === 'create' ? 'Create Workspace' : 'Join Workspace' }}
           </h2>
           <p class="mt-2 text-center text-sm text-gray-600">
-            {{ mode() === 'create' ? 'Start a new organization for your team' : 'Find and join your team\'s organization' }}
+            {{ mode() === 'create' ? 'Start a new organization for your team' : "Find and join your team's organization" }}
           </p>
         </div>
 
@@ -53,19 +55,55 @@ import { AuthService } from '../../core/auth/auth.service';
             </div>
           </div>
 
-          <div *ngIf="mode() === 'join'">
-            <label for="orgSelect" class="block text-sm font-medium text-gray-700">Select Organization</label>
-            <div class="mt-1">
-              <select 
-                id="orgSelect" 
-                formControlName="selectedOrgId"
-                class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                <option value="">Select an organization...</option>
-                <option *ngFor="let org of organizations()" [value]="org.id">
-                  {{ org.name }}
-                </option>
-              </select>
+          <div *ngIf="mode() === 'join'" class="relative">
+            <label for="orgSearch" class="block text-sm font-medium text-gray-700">Search Organization</label>
+            <div class="mt-1 relative">
+              <input 
+                [formControl]="searchControl"
+                id="orgSearch"
+                type="text"
+                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Type to search..."
+                (focus)="showDropdown.set(true)"
+                autocomplete="off">
+              
+              <!-- Search Dropdown -->
+              <div *ngIf="showDropdown() && organizations().length > 0" 
+                   class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                <div *ngFor="let org of organizations()" 
+                     (click)="selectOrg(org)"
+                     class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100 text-gray-900">
+                     <span class="block truncate font-normal">
+                      {{ org.name }}
+                     </span>
+                </div>
+              </div>
+              
+              <!-- No results message -->
+              <div *ngIf="showDropdown() && searchControl.value && organizations().length === 0 && !isSearching()" 
+                   class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-2 px-3 text-sm text-gray-500">
+                No organizations found.
+              </div>
             </div>
+
+            <!-- Selected Organization Display -->
+             <div *ngIf="selectedOrg()" class="mt-3 flex items-center justify-between p-3 bg-blue-50 rounded-md border border-blue-100">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold mr-3">
+                    {{ selectedOrg()?.name?.charAt(0) }}
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-blue-900">{{ selectedOrg()?.name }}</p>
+                    <p class="text-xs text-blue-700">Organization ID: {{ selectedOrg()?.id | slice:0:8 }}...</p>
+                  </div>
+                </div>
+                <button type="button" (click)="clearSelection()" class="text-gray-400 hover:text-red-500 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+             </div>
+
              <div *ngIf="form.get('selectedOrgId')?.invalid && form.get('selectedOrgId')?.touched" class="text-red-500 text-xs mt-1">
               Please select an organization to join.
             </div>
@@ -99,28 +137,66 @@ export class OnboardingComponent implements OnInit {
 
   mode = signal<'create' | 'join'>('create');
   isLoading = signal(false);
+  isSearching = signal(false);
   organizations = signal<Organization[]>([]);
+  showDropdown = signal(false);
+  selectedOrg = signal<Organization | null>(null);
+
+  searchControl = new FormControl('');
 
   form = this.fb.group({
     orgName: ['', [Validators.required, Validators.minLength(3)]],
-    selectedOrgId: ['']
+    selectedOrgId: ['', [Validators.required]] // Validators will be toggled
   });
 
   ngOnInit() {
     this.updateValidators();
-    this.loadOrganizations();
+    this.setupSearch();
   }
 
-  loadOrganizations() {
-    this.orgService.getAllOrganizations().subscribe(orgs => {
+  setupSearch() {
+    this.searchControl.valueChanges.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      tap(() => this.isSearching.set(true)),
+      switchMap(term => {
+        if (!term || term.length < 2) {
+          return of([]);
+        }
+        return this.orgService.searchOrganizations(term).pipe(
+          catchError(err => {
+            console.error(err);
+            return of([]);
+          })
+        );
+      })
+    ).subscribe(orgs => {
       this.organizations.set(orgs);
+      this.isSearching.set(false);
+      this.showDropdown.set(true);
     });
+  }
+
+  selectOrg(org: Organization) {
+    this.selectedOrg.set(org);
+    this.form.patchValue({ selectedOrgId: org.id });
+    this.searchControl.setValue('', { emitEvent: false });
+    this.showDropdown.set(false);
+    this.organizations.set([]);
+  }
+
+  clearSelection() {
+    this.selectedOrg.set(null);
+    this.form.patchValue({ selectedOrgId: '' });
   }
 
   setMode(mode: 'create' | 'join') {
     this.mode.set(mode);
     this.updateValidators();
     this.form.reset();
+    this.searchControl.reset();
+    this.selectedOrg.set(null);
+    this.organizations.set([]);
   }
 
   updateValidators() {
