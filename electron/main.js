@@ -8,7 +8,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, '../dist/tracker-web/browser/icon.png'),
+    icon: path.join(__dirname, '../dist/tracker-web/browser/logo.svg'),
     webPreferences: {
       nodeIntegration: false, // Recommended for security
       contextIsolation: true,  // Recommended for security

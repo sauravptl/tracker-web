@@ -18,13 +18,13 @@
     "productName": "Tracker Web",
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "public/icon.png"
+      "icon": "public/logo.png"
     },
     "win": {
-      "icon": "public/icon.png"
+      "icon": "public/logo.png"
     },
     "linux": {
-      "icon": "public/icon.png"
+      "icon": "public/logo.png"
     },
     "directories": {
       "output": "release"
