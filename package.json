@@ -21,10 +21,10 @@
     "productName": "Tracker Web",
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "public/logo.png"
+      "icon": "build/icon.icns"
     },
     "win": {
-      "icon": "public/logo.png",
+      "icon": "build/icon-centered.png",
       "target": [
         {
           "target": "nsis",
@@ -35,7 +35,7 @@
       ]
     },
     "linux": {
-      "icon": "public/logo.png"
+      "icon": "build/icon-centered.png"
     },
     "directories": {
       "output": "release"
