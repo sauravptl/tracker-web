@@ -13,7 +13,11 @@ import { firstValueFrom, Subscription } from 'rxjs';
     <aside class="bg-slate-900 text-white w-64 min-h-screen flex flex-col h-full shadow-2xl transition-all duration-300">
       <div class="p-6 border-b border-slate-800 flex justify-between items-center h-20">
         <div class="flex items-center justify-center w-full lg:w-auto">
+<<<<<<< HEAD
           <img src="logo.png" alt="TrackFlow Logo" class="h-10 w-auto bg-white rounded-lg p-1">
+=======
+          <img src="logo.svg" alt="TrackFlow Logo" class="h-10 w-auto bg-white rounded-lg p-1">
+>>>>>>> 07c6d5e19df1b94ef44bc5bdfb0073ebc142545c
         </div>
         <button (click)="closeSidebar.emit()" class="lg:hidden text-gray-400 hover:text-white focus:outline-none transition-colors">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -27,6 +31,12 @@ import { firstValueFrom, Subscription } from 'rxjs';
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
           </svg>
           <span class="font-medium">Dashboard</span>
+        </a>
+        <a routerLink="/projects" routerLinkActive="bg-blue-600 text-white shadow-lg shadow-blue-900/50" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 group" (click)="closeSidebar.emit()">
+          <svg class="h-5 w-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span class="font-medium">Projects</span>
         </a>
         <a routerLink="/tasks" routerLinkActive="bg-blue-600 text-white shadow-lg shadow-blue-900/50" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 group" (click)="closeSidebar.emit()">
           <svg class="h-5 w-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
