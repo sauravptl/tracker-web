@@ -13,7 +13,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
     <aside class="bg-slate-900 text-white w-64 min-h-screen flex flex-col h-full shadow-2xl transition-all duration-300">
       <div class="p-6 border-b border-slate-800 flex justify-between items-center h-20">
         <div class="flex items-center justify-center w-full lg:w-auto">
-          <img src="logo.png" alt="TrackFlow Logo" class="h-10 w-auto bg-white rounded-lg p-1">
+          <img src="logo.svg" alt="TrackFlow Logo" class="h-10 w-auto bg-white rounded-lg p-1">
         </div>
         <button (click)="closeSidebar.emit()" class="lg:hidden text-gray-400 hover:text-white focus:outline-none transition-colors">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

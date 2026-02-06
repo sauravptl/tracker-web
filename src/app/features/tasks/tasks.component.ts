@@ -209,11 +209,12 @@ export class TasksComponent {
               this.completedTasks.set(tasks.filter(t => t.status === 'COMPLETED'));
             });
 
-            // Load users
+            // Load users (only active users from this organization)
             this.userService.getOrgUsers(this.currentOrgId).subscribe({
               next: (users) => {
-                console.log('TasksComponent: Loaded org users', users);
-                this.orgUsers.set(users);
+                const activeUsers = users.filter(u => u.status === 'active');
+                console.log('TasksComponent: Loaded org users', activeUsers);
+                this.orgUsers.set(activeUsers);
                 // Set default assignee to current user if not already set
                 if (!this.taskForm.get('assignedTo')?.value?.length) {
                   this.taskForm.patchValue({ assignedTo: [user.uid] as any });

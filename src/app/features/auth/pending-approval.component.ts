@@ -10,7 +10,7 @@ import { AuthService } from '../../core/auth/auth.service';
   template: `
     <div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div class="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
-        <img src="logo.png" alt="TrackFlow Logo" class="h-16 w-auto">
+        <img src="logo.svg" alt="TrackFlow Logo" class="h-16 w-auto">
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Account Pending
         </h2>
