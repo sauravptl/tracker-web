@@ -1,9 +1,9 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { ExpenseClaim, ExpenseService, ExpenseStatus } from '../../core/services/expense.service';
-import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-expense-approvals',
@@ -110,10 +110,11 @@ import { firstValueFrom } from 'rxjs';
     </div>
   `
 })
-export class ExpenseApprovalsComponent implements OnInit {
+export class ExpenseApprovalsComponent {
   private expenseService = inject(ExpenseService);
   private authService = inject(AuthService);
   private userService = inject(UserService);
+  private toastService = inject(ToastService);
 
   allClaims = signal<ExpenseClaim[]>([]);
 
@@ -123,17 +124,20 @@ export class ExpenseApprovalsComponent implements OnInit {
 
   currentOrgId: string | undefined;
 
-  async ngOnInit() {
-    const user = this.authService.userSignal();
-    if (user) {
-      const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
-      if (profile?.role === 'admin' || profile?.role === 'manager') {
-        this.currentOrgId = profile?.orgId;
-        if (this.currentOrgId) {
-          this.loadClaims();
-        }
+  constructor() {
+    effect(() => {
+      const user = this.authService.userSignal();
+      if (user) {
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
+          if (profile?.role === 'admin' || profile?.role === 'manager') {
+            this.currentOrgId = profile?.orgId;
+            if (this.currentOrgId) {
+              this.loadClaims();
+            }
+          }
+        });
       }
-    }
+    });
   }
 
   loadClaims() {
@@ -156,9 +160,10 @@ export class ExpenseApprovalsComponent implements OnInit {
 
     try {
       await this.expenseService.updateStatus(claim.id, status);
+      this.toastService.success(`Claim ${status.toLowerCase()} successfully`);
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update claim status');
+      this.toastService.error('Failed to update claim status');
     }
   }
 }

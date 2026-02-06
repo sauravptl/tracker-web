@@ -1,9 +1,9 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { LeaveRequest, LeaveRequestService, LeaveStatus } from '../../core/services/leave-request.service';
-import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-leave-approval',
@@ -125,10 +125,11 @@ import { firstValueFrom } from 'rxjs';
     </div>
   `
 })
-export class LeaveApprovalComponent implements OnInit {
+export class LeaveApprovalComponent {
   private leaveService = inject(LeaveRequestService);
   private authService = inject(AuthService);
   private userService = inject(UserService);
+  private toastService = inject(ToastService);
 
   allRequests = signal<LeaveRequest[]>([]);
 
@@ -140,21 +141,20 @@ export class LeaveApprovalComponent implements OnInit {
 
   currentOrgId: string | undefined;
 
-  async ngOnInit() {
-    const user = this.authService.userSignal();
-    if (user) {
-      const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
-      // Only allow if admin or manager
-      if (profile?.role === 'admin' || profile?.role === 'manager') {
-        this.currentOrgId = profile?.orgId;
-        if (this.currentOrgId) {
-          this.loadRequests();
-        }
-      } else {
-        // Handle unauthorized access (redirect or show message)
-        // For now, just don't load data
+  constructor() {
+    effect(() => {
+      const user = this.authService.userSignal();
+      if (user) {
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
+          if (profile?.role === 'admin' || profile?.role === 'manager') {
+            this.currentOrgId = profile?.orgId;
+            if (this.currentOrgId) {
+              this.loadRequests();
+            }
+          }
+        });
       }
-    }
+    });
   }
 
   loadRequests() {
@@ -177,9 +177,10 @@ export class LeaveApprovalComponent implements OnInit {
     try {
       await this.leaveService.updateStatus(request.id, status);
       // The observable will auto-update the UI
+      this.toastService.success(`Request ${status.toLowerCase()} successfully`);
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update request status');
+      this.toastService.error('Failed to update request status');
     }
   }
 

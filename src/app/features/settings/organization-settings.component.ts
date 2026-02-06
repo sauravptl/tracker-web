@@ -1,10 +1,10 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { OrganizationService, Organization } from '../../core/services/organization.service';
-import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-organization-settings',
@@ -80,11 +80,12 @@ import { firstValueFrom } from 'rxjs';
     </div>
   `
 })
-export class OrganizationSettingsComponent implements OnInit {
+export class OrganizationSettingsComponent {
   private authService = inject(AuthService);
   private userService = inject(UserService);
   private orgService = inject(OrganizationService);
   private fb = inject(FormBuilder);
+  private toastService = inject(ToastService);
 
   loading = signal(true);
   isAdmin = signal(false);
@@ -96,28 +97,36 @@ export class OrganizationSettingsComponent implements OnInit {
     name: ['', [Validators.required, Validators.minLength(3)]]
   });
 
-  async ngOnInit() {
-    try {
+  constructor() {
+    effect(() => {
       const user = this.authService.userSignal();
       if (user) {
-        const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
-
-        if (profile?.role === 'admin') {
-          this.isAdmin.set(true);
-          if (profile.orgId) {
-            const org = await firstValueFrom(this.orgService.getOrganization(profile.orgId));
-            if (org) {
-              this.currentOrg = org;
-              this.orgForm.patchValue({ name: org.name });
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
+          if (profile?.role === 'admin') {
+            this.isAdmin.set(true);
+            if (profile.orgId) {
+              this.orgService.getOrganization(profile.orgId).subscribe(org => {
+                if (org) {
+                  this.currentOrg = org;
+                  // Only update form if it's not dirty to avoid overwriting user input while typing
+                  if (!this.orgForm.dirty) {
+                    this.orgForm.patchValue({ name: org.name });
+                  }
+                  this.loading.set(false);
+                } else {
+                  this.loading.set(false);
+                }
+              });
+            } else {
+              this.loading.set(false);
             }
+          } else {
+            this.isAdmin.set(false);
+            this.loading.set(false);
           }
-        }
+        });
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    } finally {
-      this.loading.set(false);
-    }
+    });
   }
 
   async saveSettings() {
@@ -127,10 +136,11 @@ export class OrganizationSettingsComponent implements OnInit {
         await this.orgService.updateOrganization(this.currentOrg.id, {
           name: this.orgForm.value.name!
         });
-        alert('Settings saved successfully');
+        this.toastService.success('Settings saved successfully');
+        this.orgForm.markAsPristine(); // Reset dirty state
       } catch (error) {
         console.error('Error saving settings:', error);
-        alert('Failed to save settings');
+        this.toastService.error('Failed to save settings');
       } finally {
         this.isSaving.set(false);
       }

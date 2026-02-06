@@ -4,6 +4,7 @@ import { TimeLogService } from '../../../../core/services/time-log.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { UserService } from '../../../../core/services/user.service';
 import { firstValueFrom, Subscription } from 'rxjs';
+import { ToastService } from '../../../../core/services/toast.service';
 
 @Component({
   selector: 'app-timer-card',
@@ -99,6 +100,7 @@ export class TimerCardComponent implements OnInit, OnDestroy {
   private timeLogService = inject(TimeLogService);
   private authService = inject(AuthService);
   private userService = inject(UserService);
+  private toastService = inject(ToastService);
 
   seconds = signal(0);
   isActive = signal(false);
@@ -232,7 +234,7 @@ export class TimerCardComponent implements OnInit, OnDestroy {
       });
     } catch (error) {
       console.error('Error updating user status:', error);
-      alert('Failed to stop session. Please try again.');
+      this.toastService.error('Failed to stop session. Please try again.');
     }
 
     if (this.currentOrgId) {

@@ -1,9 +1,8 @@
-import { Component, inject, OnInit, OnDestroy, signal, Input, Output, EventEmitter } from '@angular/core';
+import { Component, inject, OnInit, signal, Input, Output, EventEmitter, effect } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
-import { firstValueFrom, Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-sidebar',
@@ -109,40 +108,33 @@ import { firstValueFrom, Subscription } from 'rxjs';
     </aside>
   `
 })
-export class SidebarComponent implements OnInit, OnDestroy {
+export class SidebarComponent {
   @Input() isOpen = false;
   @Output() closeSidebar = new EventEmitter<void>();
 
   private authService = inject(AuthService);
   private userService = inject(UserService);
-  private userSub?: Subscription;
 
   role = signal<string>('employee');
   isManagerOrAdmin = signal(false);
   isAdmin = signal(false);
 
-  ngOnInit() {
-    this.userSub = this.authService.user$.subscribe(async (user) => {
+  constructor() {
+    effect(() => {
+      const user = this.authService.userSignal();
       if (user) {
-        try {
-          const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
           if (profile) {
             this.role.set(profile.role);
             this.isAdmin.set(profile.role === 'admin');
             this.isManagerOrAdmin.set(profile.role === 'admin' || profile.role === 'manager');
           }
-        } catch (error) {
-          console.error('Error fetching user profile:', error);
-        }
+        });
       } else {
         this.role.set('employee');
         this.isAdmin.set(false);
         this.isManagerOrAdmin.set(false);
       }
     });
-  }
-
-  ngOnDestroy() {
-    this.userSub?.unsubscribe();
   }
 }

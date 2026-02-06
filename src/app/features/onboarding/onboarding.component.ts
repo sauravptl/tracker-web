@@ -7,6 +7,7 @@ import { of } from 'rxjs';
 import { OrganizationService, Organization } from '../../core/services/organization.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-onboarding',
@@ -14,7 +15,17 @@ import { AuthService } from '../../core/auth/auth.service';
   imports: [CommonModule, ReactiveFormsModule],
   template: `
     <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
+      <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100 relative">
+        <button 
+          type="button" 
+          (click)="logout()" 
+          class="absolute top-4 left-4 p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100"
+          title="Sign Out">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </button>
+
         <div>
           <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
             {{ mode() === 'create' ? 'Create Workspace' : 'Join Workspace' }}
@@ -134,6 +145,7 @@ export class OnboardingComponent implements OnInit {
   private userService = inject(UserService);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private toastService = inject(ToastService);
 
   mode = signal<'create' | 'join'>('create');
   isLoading = signal(false);
@@ -143,6 +155,12 @@ export class OnboardingComponent implements OnInit {
   selectedOrg = signal<Organization | null>(null);
 
   searchControl = new FormControl('');
+
+  logout() {
+    this.authService.logout().subscribe(() => {
+      this.router.navigate(['/login']);
+    });
+  }
 
   form = this.fb.group({
     orgName: ['', [Validators.required, Validators.minLength(3)]],
@@ -250,13 +268,13 @@ export class OnboardingComponent implements OnInit {
           status: 'pending'
         });
 
-        alert('Your request to join has been sent. Please wait for an admin to approve your account.');
+        this.toastService.success('Your request to join has been sent. Please wait for an admin to approve your account.');
         // Redirect to a pending page or dashboard (which will show pending state)
         this.router.navigate(['/dashboard']);
       }
     } catch (error: any) {
       console.error('Error in onboarding:', error);
-      alert('Failed: ' + error.message);
+      this.toastService.error('Failed: ' + error.message);
     } finally {
       this.isLoading.set(false);
     }

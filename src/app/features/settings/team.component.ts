@@ -1,10 +1,11 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService, UserProfile } from '../../core/services/user.service';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-team-settings',
@@ -175,6 +176,7 @@ export class TeamSettingsComponent implements OnInit {
   private userService = inject(UserService);
   private functions = inject(Functions);
   private fb = inject(FormBuilder);
+  private toastService = inject(ToastService);
 
   loading = signal(true);
   isAdmin = signal(false);
@@ -194,28 +196,35 @@ export class TeamSettingsComponent implements OnInit {
     role: ['employee', Validators.required]
   });
 
-  async ngOnInit() {
-    try {
+  constructor() {
+    effect(() => {
       const user = this.authService.userSignal();
       if (user) {
         this.currentUserUid = user.uid;
-        const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
+          if (profile?.orgId) {
+            this.isAdmin.set(profile.role === 'admin');
 
-        if (profile?.orgId) {
-          this.isAdmin.set(profile.role === 'admin');
-
-          this.userService.getOrgUsers(profile.orgId).subscribe(users => {
-            this.teamMembers.set(users);
+            this.userService.getOrgUsers(profile.orgId).subscribe({
+              next: (users) => {
+                this.teamMembers.set(users);
+                this.loading.set(false);
+              },
+              error: (err) => {
+                console.error('Error loading team members:', err);
+                this.loading.set(false);
+              }
+            });
+          } else {
             this.loading.set(false);
-          });
-        } else {
-          this.loading.set(false);
-        }
+          }
+        });
       }
-    } catch (error) {
-      console.error('Error loading team:', error);
-      this.loading.set(false);
-    }
+    });
+  }
+
+  ngOnInit() {
+    // Logic moved to constructor effect
   }
 
   async updateRole(user: UserProfile, newRole: string) {
@@ -254,7 +263,7 @@ export class TeamSettingsComponent implements OnInit {
       // The subscription to getOrgUsers will automatically update the list and the UI.
     } catch (error) {
       console.error('Error updating role:', error);
-      alert('Failed to update user role');
+      this.toastService.error('Failed to update user role');
       // Revert is automatic if the backend didn't change, 
       // BUT the UI dropdown might be stuck on the new value.
       // We rely on the subscription to fix it or manually reset.
@@ -273,7 +282,7 @@ export class TeamSettingsComponent implements OnInit {
       await this.userService.updateUser(user.uid, { status: 'active' });
     } catch (error) {
       console.error('Error approving user:', error);
-      alert('Failed to approve user');
+      this.toastService.error('Failed to approve user');
     }
   }
 
@@ -285,7 +294,7 @@ export class TeamSettingsComponent implements OnInit {
       await this.userService.updateUser(user.uid, { status: 'rejected' });
     } catch (error) {
       console.error('Error rejecting user:', error);
-      alert('Failed to reject user');
+      this.toastService.error('Failed to reject user');
     }
   }
 
@@ -300,10 +309,10 @@ export class TeamSettingsComponent implements OnInit {
         await addTeamMember({ email, role, displayName });
         this.showAddMemberModal = false;
         this.addMemberForm.reset({ role: 'employee' });
-        alert('Member added successfully!');
+        this.toastService.success('Member added successfully!');
       } catch (error: any) {
         console.error('Error adding member:', error);
-        alert('Failed to add member: ' + (error.message || 'Unknown error'));
+        this.toastService.error('Failed to add member: ' + (error.message || 'Unknown error'));
       } finally {
         this.isAdding = false;
       }

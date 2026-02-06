@@ -1,10 +1,10 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { ExpenseClaim, ExpenseService } from '../../core/services/expense.service';
-import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-expense-claims',
@@ -133,11 +133,12 @@ import { firstValueFrom } from 'rxjs';
     </div>
   `
 })
-export class ExpenseClaimsComponent implements OnInit {
+export class ExpenseClaimsComponent {
   private expenseService = inject(ExpenseService);
   private authService = inject(AuthService);
   private userService = inject(UserService);
   private fb = inject(FormBuilder);
+  private toastService = inject(ToastService);
 
   myExpenses = signal<ExpenseClaim[]>([]);
   showClaimModal = false;
@@ -151,16 +152,18 @@ export class ExpenseClaimsComponent implements OnInit {
     date: ['', Validators.required]
   });
 
-  async ngOnInit() {
-    const user = this.authService.userSignal();
-    if (user) {
-      const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
-      this.currentOrgId = profile?.orgId;
-
-      this.expenseService.getMyExpenses(user.uid).subscribe(claims => {
-        this.myExpenses.set(claims);
-      });
-    }
+  constructor() {
+    effect(() => {
+      const user = this.authService.userSignal();
+      if (user) {
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
+          this.currentOrgId = profile?.orgId;
+          this.expenseService.getMyExpenses(user.uid).subscribe(claims => {
+            this.myExpenses.set(claims);
+          });
+        });
+      }
+    });
   }
 
   async submitClaim() {
@@ -183,9 +186,10 @@ export class ExpenseClaimsComponent implements OnInit {
 
         this.showClaimModal = false;
         this.expenseForm.reset({ currency: 'USD' });
+        this.toastService.success('Expense claim submitted successfully');
       } catch (error) {
         console.error('Error submitting expense claim:', error);
-        alert('Failed to submit claim');
+        this.toastService.error('Failed to submit claim');
       } finally {
         this.isSubmitting = false;
       }

@@ -8,11 +8,12 @@ import { UserService, UserProfile } from '../../core/services/user.service';
 import { firstValueFrom } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { RichTextEditorComponent } from '../../shared/components/rich-text-editor/rich-text-editor.component';
+import { MultiSelectDropdownComponent } from '../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, DragDropModule, ReactiveFormsModule, FormsModule, RichTextEditorComponent],
+  imports: [CommonModule, DragDropModule, ReactiveFormsModule, FormsModule, RichTextEditorComponent, MultiSelectDropdownComponent],
   template: `
     <div class="p-4 sm:p-6 h-full flex flex-col">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -74,15 +75,12 @@ import { RichTextEditorComponent } from '../../shared/components/rich-text-edito
 
               <div class="md:col-span-2">
                 <label class="block text-gray-700 text-sm font-semibold mb-2">Assign To</label>
-                <select multiple
-                  formControlName="assignedTo" 
-                  [class.border-red-500]="taskForm.get('assignedTo')?.invalid && taskForm.get('assignedTo')?.touched"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all h-32">
-                  <option *ngFor="let user of orgUsers()" [value]="user.uid">
-                    {{ user.displayName || user.email }}
-                  </option>
-                </select>
-                <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple users</p>
+                <app-multi-select-dropdown
+                  [users]="orgUsers()"
+                  [selectedIds]="taskForm.get('assignedTo')?.value || []"
+                  [invalid]="!!(taskForm.get('assignedTo')?.invalid && taskForm.get('assignedTo')?.touched)"
+                  (selectionChange)="taskForm.patchValue({ assignedTo: $event })">
+                </app-multi-select-dropdown>
                 <div *ngIf="taskForm.get('assignedTo')?.invalid && taskForm.get('assignedTo')?.touched" class="text-red-500 text-xs italic mt-1">
                   Please assign this task to a user.
                 </div>
@@ -224,16 +222,13 @@ export class TasksComponent {
   dropListIds = ['list-TODO', 'list-IN_PROGRESS', 'list-QA_TEST', 'list-DONE', 'list-COMPLETED'];
 
   constructor() {
-    effect(async () => {
+    effect(() => {
       const user = this.authService.userSignal();
       if (user) {
-        try {
-          const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
           this.currentOrgId = profile?.orgId;
 
           if (this.currentOrgId) {
-            console.log('TasksComponent: Loading data for user', user.uid);
-
             // Load projects
             this.projectService.getProjects(this.currentOrgId).subscribe(projects => {
               this.projects.set(projects);
@@ -246,7 +241,8 @@ export class TasksComponent {
               next: (users) => {
                 const activeUsers = users.filter(u => u.status === 'active');
                 this.orgUsers.set(activeUsers);
-                if (!this.taskForm.get('assignedTo')?.value?.length) {
+                // Initialize assignedTo with current user if empty and new
+                if (!this.taskForm.get('assignedTo')?.value?.length && !this.editingTask) {
                   this.taskForm.patchValue({ assignedTo: [user.uid] as any });
                 }
               },
@@ -255,9 +251,7 @@ export class TasksComponent {
               }
             });
           }
-        } catch (err) {
-          console.error('TasksComponent: Error fetching user profile', err);
-        }
+        });
       }
     });
   }
