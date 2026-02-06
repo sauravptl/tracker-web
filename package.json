@@ -11,7 +11,10 @@
     "test:rules": "firebase emulators:exec --only firestore \"jest\"",
     "electron": "electron .",
     "electron:serve": "concurrently -k \"ng serve\" \"npm run electron -- --serve\"",
-    "electron:build": "ng build --configuration production,electron && electron-builder"
+    "electron:build": "ng build --configuration production,electron && electron-builder",
+    "electron:build:mac": "ng build --configuration production,electron && electron-builder --mac",
+    "electron:build:win": "ng build --configuration production,electron && electron-builder --win",
+    "electron:build:all": "ng build --configuration production,electron && electron-builder --mac --win"
   },
   "build": {
     "appId": "com.tracker.web",
@@ -21,7 +24,15 @@
       "icon": "public/logo.png"
     },
     "win": {
-      "icon": "public/logo.png"
+      "icon": "public/logo.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "linux": {
       "icon": "public/logo.png"
