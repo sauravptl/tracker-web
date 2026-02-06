@@ -127,7 +127,7 @@ export class ProjectsListComponent {
 
   projects = signal<Project[]>([]);
   orgUsers = signal<UserProfile[]>([]);
-  
+
   showAddProjectModal = false;
   editingProject: Project | null = null;
   currentOrgId: string | undefined;
@@ -140,11 +140,10 @@ export class ProjectsListComponent {
   });
 
   constructor() {
-    effect(async () => {
+    effect(() => {
       const user = this.authService.userSignal();
       if (user) {
-        try {
-          const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
           this.currentOrgId = profile?.orgId;
 
           if (this.currentOrgId) {
@@ -158,9 +157,7 @@ export class ProjectsListComponent {
               this.orgUsers.set(users.filter(u => u.status === 'active'));
             });
           }
-        } catch (err) {
-          console.error('Error loading data:', err);
-        }
+        });
       }
     });
   }

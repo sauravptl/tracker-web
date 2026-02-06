@@ -1,10 +1,10 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { LeaveRequest, LeaveRequestService, LeaveType } from '../../core/services/leave-request.service';
-import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-leave-request',
@@ -140,11 +140,12 @@ import { firstValueFrom } from 'rxjs';
     </div>
   `
 })
-export class LeaveRequestComponent implements OnInit {
+export class LeaveRequestComponent {
   private leaveService = inject(LeaveRequestService);
   private authService = inject(AuthService);
   private userService = inject(UserService);
   private fb = inject(FormBuilder);
+  private toastService = inject(ToastService);
 
   myRequests = signal<LeaveRequest[]>([]);
   showRequestModal = false;
@@ -158,16 +159,19 @@ export class LeaveRequestComponent implements OnInit {
     reason: ['', Validators.required]
   });
 
-  async ngOnInit() {
-    const user = this.authService.userSignal();
-    if (user) {
-      const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
-      this.currentOrgId = profile?.orgId;
-
-      this.leaveService.getMyRequests(user.uid).subscribe(requests => {
-        this.myRequests.set(requests);
-      });
-    }
+  constructor() {
+    effect(() => {
+      const user = this.authService.userSignal();
+      if (user) {
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
+          this.currentOrgId = profile?.orgId;
+          // Reload requests even if only userId, but orgId might be needed for creation
+          this.leaveService.getMyRequests(user.uid).subscribe(requests => {
+            this.myRequests.set(requests);
+          });
+        });
+      }
+    });
   }
 
   async submitRequest() {
@@ -190,9 +194,10 @@ export class LeaveRequestComponent implements OnInit {
 
         this.showRequestModal = false;
         this.leaveForm.reset({ type: 'VACATION' });
+        this.toastService.success('Leave request submitted successfully');
       } catch (error) {
         console.error('Error submitting leave request:', error);
-        alert('Failed to submit request');
+        this.toastService.error('Failed to submit request');
       } finally {
         this.isSubmitting = false;
       }

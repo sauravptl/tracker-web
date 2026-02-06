@@ -5,6 +5,7 @@ import { UserService } from '../../core/services/user.service';
 import { Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-login',
@@ -82,6 +83,7 @@ export class LoginComponent {
   private authService = inject(AuthService);
   private userService = inject(UserService);
   private router = inject(Router);
+  private toastService = inject(ToastService);
   private fb = inject(FormBuilder);
 
   loginForm = this.fb.group({
@@ -114,7 +116,7 @@ export class LoginComponent {
             this.router.navigate(['/dashboard']);
           }
         },
-        error: (err) => alert(err.message)
+        error: (err) => this.toastService.error(err.message)
       });
     } else {
       this.loginForm.markAllAsTouched();

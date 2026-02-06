@@ -7,7 +7,7 @@ import { TaskService } from '../../core/services/task.service';
 import { TimeLogService } from '../../core/services/time-log.service';
 import { UserService, UserProfile } from '../../core/services/user.service';
 import { LeaveRequestService, LeaveRequest } from '../../core/services/leave-request.service';
-import { firstValueFrom, Subscription, interval } from 'rxjs';
+import { firstValueFrom, Subscription, interval, combineLatest } from 'rxjs';
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { TimerCardComponent } from './components/timer-card/timer-card.component';
 
@@ -325,25 +325,20 @@ export class DashboardComponent implements OnDestroy {
         });
 
         // 6. Fetch Team Status & Who's Working
-        try {
-          const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
           if (profile?.orgId) {
             // Combine Users + Leaves
             const users$ = this.userService.getOrgUsers(profile.orgId);
             const leaves$ = this.leaveService.getOrgRequests(profile.orgId);
 
-            // Using simple subscription for now, could use forkJoin or combineLatest if strict sync needed
-            users$.subscribe(async (users) => {
-              // We need leaves to determine status
-              const leaves = await firstValueFrom(leaves$); // Get current snapshot of leaves
-
-              const usersWithStatus = users.map(u => {
+            combineLatest([users$, leaves$]).subscribe(([users, leaves]: [UserProfile[], LeaveRequest[]]) => {
+              const usersWithStatus = users.map((u: UserProfile) => {
                 let status = 'Offline';
                 if (u.isClockedIn) {
                   status = u.currentSessionType === 'break' ? 'On Break' : 'Working';
                 } else {
                   // Check if on active leave
-                  const activeLeave = leaves.find(l =>
+                  const activeLeave = leaves.find((l: LeaveRequest) =>
                     l.userId === u.uid &&
                     l.status === 'APPROVED' &&
                     this.isDateInRange(new Date(), l.startDate, l.endDate)
@@ -356,7 +351,7 @@ export class DashboardComponent implements OnDestroy {
               });
 
               // Sort: Working > Break > Leave > Offline
-              usersWithStatus.sort((a, b) => {
+              usersWithStatus.sort((a: any, b: any) => {
                 const score = (status: string) => {
                   if (status === 'Working') return 3;
                   if (status === 'On Break') return 2;
@@ -367,12 +362,10 @@ export class DashboardComponent implements OnDestroy {
               });
 
               this.teamUsersWithStatus.set(usersWithStatus);
-              this.activeTeamMembers.set(usersWithStatus.filter(u => u.status === 'Working' || u.status === 'On Break').length);
+              this.activeTeamMembers.set(usersWithStatus.filter((u: any) => u.status === 'Working' || u.status === 'On Break').length);
             });
           }
-        } catch (error) {
-          console.error('Error fetching data for dashboard:', error);
-        }
+        });
       }
     });
   }

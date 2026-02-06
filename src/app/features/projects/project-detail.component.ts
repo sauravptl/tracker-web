@@ -8,12 +8,13 @@ import { Task, TaskService, TaskStatus } from '../../core/services/task.service'
 import { UserService, UserProfile } from '../../core/services/user.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { RichTextEditorComponent } from '../../shared/components/rich-text-editor/rich-text-editor.component';
+import { MultiSelectDropdownComponent } from '../../shared/components/multi-select-dropdown/multi-select-dropdown.component';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, DragDropModule, ReactiveFormsModule, RichTextEditorComponent],
+  imports: [CommonModule, RouterModule, DragDropModule, ReactiveFormsModule, RichTextEditorComponent, MultiSelectDropdownComponent],
   template: `
     <div class="h-full flex flex-col bg-white" *ngIf="project(); else loading">
       <!-- Project Header -->
@@ -132,13 +133,12 @@ import { firstValueFrom } from 'rxjs';
 
               <div>
                 <label class="block text-gray-700 text-sm font-semibold mb-2">Assign To</label>
-                <select multiple
-                  formControlName="assignedTo" 
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all h-32">
-                  <option *ngFor="let user of orgUsers()" [value]="user.uid">
-                    {{ user.displayName || user.email }}
-                  </option>
-                </select>
+                <app-multi-select-dropdown
+                  [users]="orgUsers()"
+                  [selectedIds]="taskForm.get('assignedTo')?.value || []"
+                  [invalid]="!!(taskForm.get('assignedTo')?.invalid && taskForm.get('assignedTo')?.touched)"
+                  (selectionChange)="taskForm.patchValue({ assignedTo: $event })">
+                </app-multi-select-dropdown>
                 <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
               </div>
             </div>
@@ -207,25 +207,24 @@ export class ProjectDetailComponent {
   dropListIds = ['list-TODO', 'list-IN_PROGRESS', 'list-QA_TEST', 'list-DONE', 'list-COMPLETED'];
 
   constructor() {
-    effect(async () => {
-      const params = await firstValueFrom(this.route.params);
+    this.route.params.subscribe(params => {
       const projectId = params['id'];
-
       if (projectId) {
         this.loadProject(projectId);
       }
     });
 
     // Load users (we can assume if user is here, they are auth'd and have an org)
-    effect(async () => {
+    effect(() => {
       const user = this.authService.userSignal();
       if (user) {
-        const profile = await firstValueFrom(this.userService.getUserProfile(user.uid));
-        if (profile?.orgId) {
-          this.userService.getOrgUsers(profile.orgId).subscribe(users => {
-            this.orgUsers.set(users.filter(u => u.status === 'active'));
-          });
-        }
+        this.userService.getUserProfileStream(user.uid).subscribe(profile => {
+          if (profile?.orgId) {
+            this.userService.getOrgUsers(profile.orgId).subscribe(users => {
+              this.orgUsers.set(users.filter(u => u.status === 'active'));
+            });
+          }
+        });
       }
     });
   }

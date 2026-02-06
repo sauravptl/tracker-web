@@ -1,4 +1,4 @@
-import { Component, forwardRef, ElementRef, ViewChild, signal } from '@angular/core';
+import { Component, forwardRef, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
@@ -57,13 +57,20 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
     }
   `]
 })
-export class RichTextEditorComponent implements ControlValueAccessor {
+export class RichTextEditorComponent implements ControlValueAccessor, AfterViewInit {
   @ViewChild('editor') editor!: ElementRef<HTMLDivElement>;
 
   onChange: (value: string) => void = () => { };
   onTouched: () => void = () => { };
 
   disabled = false;
+  private _value = '';
+
+  ngAfterViewInit() {
+    if (this.editor) {
+      this.editor.nativeElement.innerHTML = this._value;
+    }
+  }
 
   execCommand(command: string, value: string = '') {
     document.execCommand(command, false, value);
@@ -77,12 +84,15 @@ export class RichTextEditorComponent implements ControlValueAccessor {
 
   onInput() {
     const html = this.editor.nativeElement.innerHTML;
-    this.onChange(html === '<br>' ? '' : html);
+    const value = html === '<br>' ? '' : html;
+    this._value = value;
+    this.onChange(value);
   }
 
   writeValue(value: string): void {
+    this._value = value || '';
     if (this.editor) {
-      this.editor.nativeElement.innerHTML = value || '';
+      this.editor.nativeElement.innerHTML = this._value;
     }
   }
 

@@ -4,6 +4,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-register',
@@ -49,11 +50,20 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
             
             <div>
               <label class="block text-sm font-medium text-gray-700" for="password">Password</label>
-              <div class="mt-1">
+              <div class="mt-1 relative">
                 <input 
                   [class.border-red-500]="registerForm.get('password')?.invalid && registerForm.get('password')?.touched"
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" 
-                  id="password" type="password" formControlName="password" placeholder="********">
+                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all pr-10" 
+                  id="password" [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="********">
+                <button type="button" (click)="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
+                  <svg *ngIf="!showPassword" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  <svg *ngIf="showPassword" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.057 10.057 0 01-1.564 3.029m-3.286-3.286l3.59 3.59M3 3l18 18" />
+                  </svg>
+                </button>
               </div>
               <div *ngIf="registerForm.get('password')?.invalid && registerForm.get('password')?.touched" class="text-red-500 text-xs mt-1">
                 <span *ngIf="registerForm.get('password')?.errors?.['required']">Password is required.</span>
@@ -82,12 +92,19 @@ export class RegisterComponent {
   private userService = inject(UserService);
   private router = inject(Router);
   private fb = inject(FormBuilder);
+  private toastService = inject(ToastService);
 
   registerForm = this.fb.group({
     fullName: ['', [Validators.required]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]]
   });
+
+  showPassword = false;
+
+  togglePasswordVisibility() {
+    this.showPassword = !this.showPassword;
+  }
 
   onSubmit() {
     if (this.registerForm.valid) {
@@ -104,10 +121,10 @@ export class RegisterComponent {
             this.router.navigate(['/onboarding']);
           } catch (error: any) {
             console.error('Error creating profile:', error);
-            alert('Error creating profile: ' + error.message);
+            this.toastService.error('Error creating profile: ' + error.message);
           }
         },
-        error: (err) => alert(err.message)
+        error: (err) => this.toastService.error(err.message)
       });
     } else {
       this.registerForm.markAllAsTouched();

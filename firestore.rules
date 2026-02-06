@@ -20,6 +20,11 @@ service cloud.firestore {
       // User must have the orgId AND be active (or have no status field for legacy support)
       return userData.orgId == orgId && (userData.status == 'active' || !("status" in userData));
     }
+
+    function isOrgOwner(orgId) {
+      let orgPath = /databases/$(database)/documents/organizations/$(orgId);
+      return exists(orgPath) && get(orgPath).data.ownerId == request.auth.uid;
+    }
     
     function getRole() {
       // Prefer custom claim, fallback to DB read
@@ -46,18 +51,39 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || isOrgMember(resource.data.orgId));
       allow create: if isSignedIn() && request.auth.uid == userId;
       
-      // User can update own profile BUT cannot change role or orgId
+      // User can update own profile BUT cannot change role or orgId usually
       // Admin of the SAME org can update the user (e.g. change role)
+      // Special cases for onboarding (create org) and joining
       allow update: if isSignedIn() && (
+        // Case 1: Self update without changing sensitive fields (role, orgId, status)
         (request.auth.uid == userId && 
          request.resource.data.role == resource.data.role && 
-         request.resource.data.orgId == resource.data.orgId) || 
-        (isOrgMember(resource.data.orgId) && isAdmin())
+         request.resource.data.orgId == resource.data.orgId &&
+         request.resource.data.status == resource.data.status) || 
+         
+        // Case 2: Admin of the user's org updating the user
+        (isOrgMember(resource.data.orgId) && isAdmin()) ||
+        
+        // Case 3: Onboarding - Creating new Organization
+        // User becomes Admin of the new Org they own
+        (request.auth.uid == userId && 
+         request.resource.data.role == 'admin' && 
+         request.resource.data.status == 'active' &&
+         isOrgOwner(request.resource.data.orgId)) ||
+         
+        // Case 4: Onboarding - Joining existing Organization
+        // User becomes Pending Employee
+        (request.auth.uid == userId && 
+         request.resource.data.role == 'employee' && 
+         request.resource.data.status == 'pending')
       );
     }
 
     match /tasks/{taskId} {
-      allow read: if isSignedIn() && isOrgMember(resource.data.orgId);
+      allow read: if isSignedIn() && (
+        isOrgMember(resource.data.orgId) ||
+        request.auth.uid in resource.data.assignedTo
+      );
       allow create: if isSignedIn() && isOrgMember(request.resource.data.orgId);
       allow update, delete: if isSignedIn() && isOrgMember(resource.data.orgId);
     }
@@ -74,7 +100,7 @@ service cloud.firestore {
     match /leaveRequests/{requestId} {
       allow read: if isSignedIn() && (
         request.auth.uid == resource.data.userId || 
-        (isOrgMember(resource.data.orgId) && (isAdmin() || isManager()))
+        isOrgMember(resource.data.orgId)
       );
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId && isOrgMember(request.resource.data.orgId);
       allow update: if isSignedIn() && (
@@ -93,6 +119,12 @@ service cloud.firestore {
         (isOrgMember(resource.data.orgId) && (isAdmin() || isManager())) ||
         (request.auth.uid == resource.data.userId && resource.data.status == 'PENDING')
       );
+    }
+
+    match /projects/{projectId} {
+      allow read: if isSignedIn() && isOrgMember(resource.data.orgId);
+      allow create: if isSignedIn() && isOrgMember(request.resource.data.orgId);
+      allow update, delete: if isSignedIn() && isOrgMember(resource.data.orgId);
     }
   }
 }

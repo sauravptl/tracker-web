@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Firestore, collection, doc, getDoc, setDoc, query, where, collectionData, updateDoc, CollectionReference } from '@angular/fire/firestore';
+import { Firestore, collection, doc, getDoc, setDoc, query, where, collectionData, updateDoc, docData, CollectionReference } from '@angular/fire/firestore';
 import { Observable, from } from 'rxjs';
 
 export interface Organization {
@@ -32,7 +32,7 @@ export class OrganizationService {
 
   getOrganization(orgId: string): Observable<Organization | undefined> {
     const docRef = doc(this.firestore, 'organizations', orgId);
-    return from(getDoc(docRef).then(snap => snap.data() as Organization));
+    return docData(docRef, { idField: 'id' }) as Observable<Organization>;
   }
 
   getUserOrganizations(userId: string): Observable<Organization[]> {
