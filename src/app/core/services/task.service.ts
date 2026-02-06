@@ -13,6 +13,7 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   orgId: string;
+  projectId?: string;
   createdAt: any;
 }
 
@@ -32,6 +33,11 @@ export class TaskService {
 
   getTasks(orgId: string): Observable<Task[]> {
     const q = query(this.tasksCollection, where('orgId', '==', orgId));
+    return collectionData(q, { idField: 'id' }) as Observable<Task[]>;
+  }
+
+  getTasksByProject(projectId: string): Observable<Task[]> {
+    const q = query(this.tasksCollection, where('projectId', '==', projectId));
     return collectionData(q, { idField: 'id' }) as Observable<Task[]>;
   }
 

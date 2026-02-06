@@ -2,23 +2,38 @@ import { Component, inject, OnInit, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { Task, TaskService, TaskStatus } from '../../core/services/task.service';
+import { Project, ProjectService } from '../../core/services/project.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService, UserProfile } from '../../core/services/user.service';
 import { firstValueFrom } from 'rxjs';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { RichTextEditorComponent } from '../../shared/components/rich-text-editor/rich-text-editor.component';
 
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, DragDropModule, ReactiveFormsModule, RichTextEditorComponent],
+  imports: [CommonModule, DragDropModule, ReactiveFormsModule, FormsModule, RichTextEditorComponent],
   template: `
     <div class="p-4 sm:p-6 h-full flex flex-col">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h1 class="text-2xl font-bold text-gray-900">Tasks Board</h1>
-        <button (click)="showAddTaskModal = true" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
-          <span>+</span> Add Task
-        </button>
+        
+        <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <!-- Project Filter -->
+          <select 
+            [ngModel]="selectedProjectFilter()" 
+            (ngModelChange)="onProjectFilterChange($event)"
+            class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
+            <option [ngValue]="null">All Projects</option>
+            <option *ngFor="let project of projects()" [value]="project.id">
+              {{ project.name }}
+            </option>
+          </select>
+
+          <button (click)="openAddModal()" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+            <span>+</span> Add Task
+          </button>
+        </div>
       </div>
 
       <!-- Add Task Modal -->
@@ -39,6 +54,16 @@ import { RichTextEditorComponent } from '../../shared/components/rich-text-edito
               </div>
               
               <div>
+                <label class="block text-gray-700 text-sm font-semibold mb-2">Project</label>
+                <select formControlName="projectId" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                  <option [ngValue]="null">No Project</option>
+                  <option *ngFor="let project of projects()" [value]="project.id">
+                    {{ project.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
                 <label class="block text-gray-700 text-sm font-semibold mb-2">Priority</label>
                 <select formControlName="priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
                   <option value="LOW">Low</option>
@@ -47,7 +72,7 @@ import { RichTextEditorComponent } from '../../shared/components/rich-text-edito
                 </select>
               </div>
 
-              <div>
+              <div class="md:col-span-2">
                 <label class="block text-gray-700 text-sm font-semibold mb-2">Assign To</label>
                 <select multiple
                   formControlName="assignedTo" 
@@ -128,6 +153,13 @@ import { RichTextEditorComponent } from '../../shared/components/rich-text-edito
                   </svg>
                 </button>
 
+                <!-- Project Badge -->
+                <div *ngIf="task.projectId" class="mb-2">
+                  <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                    {{ getProjectName(task.projectId) }}
+                  </span>
+                </div>
+
                 <h4 [class.line-through]="col.theme === 'green' || col.theme === 'indigo'" class="font-medium text-gray-900 group-hover:text-blue-600 transition-colors pr-6">{{ task.title }}</h4>
                 
                 <div *ngIf="task.description" class="rich-text-content mt-2 text-xs text-gray-500 line-clamp-2" [innerHTML]="task.description"></div>
@@ -140,9 +172,6 @@ import { RichTextEditorComponent } from '../../shared/components/rich-text-edito
                         <div class="h-5 w-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold ring-1 ring-white">
                           {{ getUserInitials(uid) }}
                         </div>
-                        <span class="text-xs font-medium text-gray-700 max-w-[80px] truncate">
-                          {{ getUserDisplayName(uid) }}
-                        </span>
                      </div>
                   </div>
                 </div>
@@ -157,6 +186,7 @@ import { RichTextEditorComponent } from '../../shared/components/rich-text-edito
 })
 export class TasksComponent {
   private taskService = inject(TaskService);
+  private projectService = inject(ProjectService);
   private authService = inject(AuthService);
   private userService = inject(UserService);
   private fb = inject(FormBuilder);
@@ -166,7 +196,10 @@ export class TasksComponent {
   qaTasks = signal<Task[]>([]);
   doneTasks = signal<Task[]>([]);
   completedTasks = signal<Task[]>([]);
+
   orgUsers = signal<UserProfile[]>([]);
+  projects = signal<Project[]>([]);
+  selectedProjectFilter = signal<string | null>(null);
 
   showAddTaskModal = false;
   editingTask: Task | null = null;
@@ -176,7 +209,8 @@ export class TasksComponent {
     title: ['', Validators.required],
     description: [''],
     priority: ['MEDIUM', Validators.required],
-    assignedTo: [[] as string[], Validators.required]
+    assignedTo: [[] as string[], Validators.required],
+    projectId: [null as string | null]
   });
 
   columns = [
@@ -187,7 +221,6 @@ export class TasksComponent {
     { id: 'COMPLETED' as TaskStatus, title: 'Completed', items: this.completedTasks, theme: 'indigo' }
   ];
 
-  // Explicitly define connected drop lists for robust drag-and-drop
   dropListIds = ['list-TODO', 'list-IN_PROGRESS', 'list-QA_TEST', 'list-DONE', 'list-COMPLETED'];
 
   constructor() {
@@ -199,23 +232,20 @@ export class TasksComponent {
           this.currentOrgId = profile?.orgId;
 
           if (this.currentOrgId) {
-            console.log('TasksComponent: Loading tasks for user', user.uid);
-            // Load tasks
-            this.taskService.getMyTasks(user.uid).subscribe(tasks => {
-              this.todoTasks.set(tasks.filter(t => t.status === 'TODO'));
-              this.inProgressTasks.set(tasks.filter(t => t.status === 'IN_PROGRESS'));
-              this.qaTasks.set(tasks.filter(t => t.status === 'QA_TEST'));
-              this.doneTasks.set(tasks.filter(t => t.status === 'DONE'));
-              this.completedTasks.set(tasks.filter(t => t.status === 'COMPLETED'));
+            console.log('TasksComponent: Loading data for user', user.uid);
+
+            // Load projects
+            this.projectService.getProjects(this.currentOrgId).subscribe(projects => {
+              this.projects.set(projects);
             });
 
-            // Load users (only active users from this organization)
+            this.loadTasks();
+
+            // Load users
             this.userService.getOrgUsers(this.currentOrgId).subscribe({
               next: (users) => {
                 const activeUsers = users.filter(u => u.status === 'active');
-                console.log('TasksComponent: Loaded org users', activeUsers);
                 this.orgUsers.set(activeUsers);
-                // Set default assignee to current user if not already set
                 if (!this.taskForm.get('assignedTo')?.value?.length) {
                   this.taskForm.patchValue({ assignedTo: [user.uid] as any });
                 }
@@ -224,14 +254,50 @@ export class TasksComponent {
                 console.error('TasksComponent: Error loading org users', err);
               }
             });
-          } else {
-            console.warn('TasksComponent: No orgId found for user', user.uid);
           }
         } catch (err) {
           console.error('TasksComponent: Error fetching user profile', err);
         }
       }
     });
+  }
+
+  loadTasks() {
+    if (!this.currentOrgId) return;
+
+    const user = this.authService.userSignal();
+    if (!user) return;
+
+    // Load tasks based on filter
+    const projectId = this.selectedProjectFilter();
+    let tasksObservable;
+
+    if (projectId) {
+      tasksObservable = this.taskService.getTasksByProject(projectId);
+    } else {
+      tasksObservable = this.taskService.getMyTasks(user.uid);
+    }
+
+    tasksObservable.subscribe(tasks => {
+      this.todoTasks.set(tasks.filter(t => t.status === 'TODO'));
+      this.inProgressTasks.set(tasks.filter(t => t.status === 'IN_PROGRESS'));
+      this.qaTasks.set(tasks.filter(t => t.status === 'QA_TEST'));
+      this.doneTasks.set(tasks.filter(t => t.status === 'DONE'));
+      this.completedTasks.set(tasks.filter(t => t.status === 'COMPLETED'));
+    });
+  }
+
+  onProjectFilterChange(projectId: string | null) {
+    this.selectedProjectFilter.set(projectId);
+    this.loadTasks();
+  }
+
+  openAddModal() {
+    this.showAddTaskModal = true;
+    // Auto-select project if filter is active
+    if (this.selectedProjectFilter()) {
+      this.taskForm.patchValue({ projectId: this.selectedProjectFilter() });
+    }
   }
 
   async drop(event: CdkDragDrop<Task[]>, newStatus: TaskStatus) {
@@ -248,7 +314,7 @@ export class TasksComponent {
         event.currentIndex,
       );
 
-      // Explicitly update signals to trigger change detection
+      // Update signals
       const prevColumn = this.columns.find(c => c.items() === prevList);
       const currColumn = this.columns.find(c => c.items() === currList);
 
@@ -256,10 +322,8 @@ export class TasksComponent {
       if (currColumn) currColumn.items.set([...currList]);
 
       const task = currList[event.currentIndex];
-      // Update task status locally
       task.status = newStatus;
 
-      // Update in Firestore
       if (task.id) {
         await this.taskService.updateTask(task.id, { status: newStatus });
       }
@@ -267,7 +331,7 @@ export class TasksComponent {
   }
 
   onDragEntered(event: any) {
-    console.log('Drag entered:', event.container.id);
+    // console.log('Drag entered:', event.container.id);
   }
 
   openEditModal(task: Task) {
@@ -276,7 +340,8 @@ export class TasksComponent {
       title: task.title,
       description: task.description || '',
       priority: task.priority,
-      assignedTo: task.assignedTo as any
+      assignedTo: task.assignedTo as any,
+      projectId: task.projectId || null
     });
     this.showAddTaskModal = true;
   }
@@ -285,25 +350,28 @@ export class TasksComponent {
     this.showAddTaskModal = false;
     this.editingTask = null;
     const user = this.authService.userSignal();
-    this.taskForm.reset({ priority: 'MEDIUM', assignedTo: user?.uid ? [user.uid] : [], description: '' });
+    this.taskForm.reset({
+      priority: 'MEDIUM',
+      assignedTo: user?.uid ? [user.uid] : [],
+      description: '',
+      projectId: this.selectedProjectFilter()
+    });
   }
 
   async saveTask() {
     if (this.taskForm.valid && this.currentOrgId) {
-      const { title, description, priority, assignedTo } = this.taskForm.value;
-      const user = this.authService.userSignal();
+      const { title, description, priority, assignedTo, projectId } = this.taskForm.value;
 
       try {
         if (this.editingTask && this.editingTask.id) {
-          // Update existing task
           await this.taskService.updateTask(this.editingTask.id, {
             title: title!,
             description: description || '',
             priority: priority as any,
-            assignedTo: assignedTo as any
+            assignedTo: assignedTo as any,
+            projectId: projectId || undefined
           });
         } else {
-          // Create new task
           await this.taskService.createTask({
             title: title!,
             description: description || '',
@@ -311,6 +379,7 @@ export class TasksComponent {
             status: 'TODO',
             assignedTo: assignedTo as any,
             orgId: this.currentOrgId,
+            projectId: projectId || undefined,
             createdAt: new Date()
           });
         }
@@ -320,6 +389,11 @@ export class TasksComponent {
         console.error('Error saving task:', error);
       }
     }
+  }
+
+  getProjectName(projectId: string): string {
+    const project = this.projects().find(p => p.id === projectId);
+    return project ? project.name : 'Unknown Project';
   }
 
   getPriorityClass(priority: string): string {
