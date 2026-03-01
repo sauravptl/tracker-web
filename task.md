@@ -72,3 +72,81 @@
 - [x] Implement User Management (Approve/Reject) in Team Settings
 - [x] Update Firestore Rules for Active Status Enforcement
 - [x] Responsive UI Overhaul with Tailwind CSS (Mobile Sidebar, etc.)
+
+---
+
+## 11. Screenshot Monitoring Feature
+
+> **Scope:** Desktop app (Electron — macOS & Windows) + Web dashboard for admin screenshot review.
+
+### 11.1 Admin Settings — Screenshot Management
+- [ ] Add "Screenshot Monitoring" section to Admin → Settings page
+- [ ] Toggle per-user/employee: enable or disable screenshot capture for specific users
+- [ ] Set capture interval (e.g. every 5 / 10 / 15 / 30 minutes) per org or per user
+- [ ] Persist screenshot settings in Firestore under `organizations/{orgId}/screenshotSettings`
+- [ ] Firestore security rule: only admin/manager can read or write screenshot settings
+
+### 11.2 Permission Prompt on App Launch (Desktop)
+- [ ] On first launch (macOS & Windows), show a full-screen permission modal before the main app loads
+- [ ] macOS modal: step-by-step guide to enable Screen Recording in System Settings → Privacy & Security
+  - "Open System Settings" button that deep-links to the Screen Recording pane
+  - Re-check permission status when the user returns to the app
+- [ ] Windows modal: inform user no special OS permission is needed; show firewall/antivirus allow-list steps if relevant
+- [ ] Block app navigation until permission is confirmed (or gracefully skip if user is not screenshot-enabled)
+- [ ] Store `permissionAcknowledged` flag locally so modal only shows once per install
+
+### 11.3 Background Screenshot Service (Desktop — Electron)
+- [ ] Screenshot capture runs silently in the Electron main process (no tray icon notification, no visible UI to the employee)
+- [ ] On user login, fetch screenshot settings from Firestore and start/stop service accordingly
+- [ ] Timer is tied to app window visibility: pause capture when app is closed or minimised to system tray; resume when app is open and user is clocked in
+- [ ] Employee/user has no UI control over screenshot capture — no start/stop button, no visible indicator
+- [ ] Capture fires at the configured interval using `desktopCapturer` (existing `screenshot-service.js` as base)
+- [ ] Compress screenshot to JPEG at configured quality preset before upload
+- [ ] Upload base64 image to Firebase Storage under `screenshots/{orgId}/{userId}/{timestamp}.jpg`
+- [ ] After successful upload, write metadata document to Firestore `screenshots` collection (see schema below)
+
+### 11.4 Firestore Data Schema — Screenshots
+- [ ] Collection: `screenshots`
+- [ ] Document fields:
+  ```
+  {
+    orgId: string,
+    userId: string,
+    userDisplayName: string,
+    capturedAt: Timestamp,
+    storagePath: string,          // Firebase Storage path
+    downloadUrl: string,          // Public or signed URL
+    resolution: string,           // e.g. "1440x900"
+    fileSizeBytes: number,
+    quality: 'low' | 'medium' | 'high'
+  }
+  ```
+- [ ] Composite Firestore index: `orgId` + `userId` + `capturedAt` (descending) for paginated admin queries
+- [ ] Firestore security rules:
+  - Employees can **write** their own screenshot documents (upload metadata)
+  - Employees **cannot read** any screenshot documents
+  - Admins/managers can **read** all screenshots within their org
+
+### 11.5 Admin — Screenshot Viewer (Web + Desktop)
+- [ ] New route: `/admin/screenshots` (accessible to admin/manager only, guarded by role)
+- [ ] User list sidebar: show all employees who have screenshot monitoring enabled
+- [ ] Select a user to view their screenshot timeline (paginated, newest first)
+- [ ] Screenshot grid view: thumbnail cards showing capture time, resolution, file size
+- [ ] Click thumbnail → open lightbox/modal with full-size image
+- [ ] Date range filter to browse screenshots by day/week
+- [ ] Lazy-load images using Firebase Storage download URLs (signed URLs for private storage)
+- [ ] "No screenshots yet" empty state per user
+
+### 11.6 Web App — Screenshot Upload Fallback
+- [ ] In the Angular web app, add a `ScreenshotWebService` that uses the browser's `getDisplayMedia` API as a fallback for web-only users (if applicable and user has granted permission)
+- [ ] If web capture is not feasible/applicable, display an informational message directing users to use the desktop app for monitoring
+
+### 11.7 Build & Deployment
+- [ ] Bump app version in `package.json` (e.g. `1.x.0` → `1.x+1.0`) for new desktop release
+- [ ] Update `electron-builder` config to include any new native modules if required
+- [ ] Build macOS DMG: `npm run electron:build:mac`
+- [ ] Build Windows NSIS installer: `npm run electron:build:win`
+- [ ] Deploy updated Angular web app to Firebase Hosting: `firebase deploy --only hosting`
+- [ ] Deploy updated Firestore rules and indexes: `firebase deploy --only firestore`
+- [ ] Deploy Cloud Functions if any new functions added: `firebase deploy --only functions`
+- [ ] Smoke-test the new build: permission modal, screenshot capture, admin viewer

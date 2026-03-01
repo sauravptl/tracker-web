@@ -10,8 +10,13 @@ function createWindow() {
     height: 800,
     icon: path.join(__dirname, '../build/icon.icns'),
     webPreferences: {
+<<<<<<< HEAD
+      nodeIntegration: false, // Recommended for security
+      contextIsolation: true,  // Recommended for security
+=======
       nodeIntegration: false,
       contextIsolation: true,
+>>>>>>> b82d79693998326a1f86243c2b05dba7a4112994
       webSecurity: true
     }
   });
@@ -22,6 +27,19 @@ function createWindow() {
 
   if (serve) {
     win.loadURL('http://localhost:4200');
+<<<<<<< HEAD
+    // Open DevTools in dev mode
+    win.webContents.openDevTools();
+  } else {
+    win.loadFile(path.join(__dirname, '../dist/tracker-web/browser/index.html'));
+  }
+
+  // Handle load failures
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
+
+=======
     win.webContents.openDevTools();
   } else {
     win.loadURL(url.format({
@@ -31,6 +49,7 @@ function createWindow() {
     }));
   }
 
+>>>>>>> b82d79693998326a1f86243c2b05dba7a4112994
   win.on('closed', () => {
     win = null;
   });
@@ -39,10 +58,16 @@ function createWindow() {
 app.on('ready', () => {
   createWindow();
 
+<<<<<<< HEAD
+  // Register a shortcut to toggle DevTools (Cmd+Option+I on Mac, Ctrl+Shift+I on Win/Linux)
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    if (win) win.webContents.toggleDevTools();
+=======
   globalShortcut.register('CommandOrControl+Shift+I', () => {
     if (win) {
       win.webContents.toggleDevTools();
     }
+>>>>>>> b82d79693998326a1f86243c2b05dba7a4112994
   });
 });
 
