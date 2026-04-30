@@ -1,0 +1,71 @@
+<section class="showcase" aria-labelledby="showcase-heading">
+
+  <!-- Section header -->
+  <div class="showcase__header">
+    <span class="showcase__eyebrow">Portfolio</span>
+    <h2 class="showcase__heading" id="showcase-heading">
+      Properties Powered by<br>
+      <span class="showcase__heading--accent">Our Intelligence</span>
+    </h2>
+    <p class="showcase__sub">
+      Every listing you see here went from dormant to deal-signed using our
+      AI automation stack. Visual storytelling meets machine precision.
+    </p>
+  </div>
+
+  <!-- Masonry grid -->
+  <div class="showcase__grid" role="list">
+    @for (item of items; track item.label) {
+      <article class="showcase-frame showcase-frame--{{ item.span }}" role="listitem">
+
+        <!-- Photo placeholder -->
+        <div class="showcase-frame__photo" [attr.aria-label]="'85mm cinematic photography placeholder — ' + item.label">
+          <div class="showcase-frame__overlay"></div>
+          <div class="showcase-frame__inner">
+            <svg class="showcase-frame__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21,15 16,10 5,21"/>
+            </svg>
+            <span class="showcase-frame__mm">85 mm</span>
+          </div>
+        </div>
+
+        <!-- Caption bar -->
+        <div class="showcase-frame__caption">
+          <div class="showcase-frame__caption-left">
+            <span class="showcase-frame__type">{{ item.type }}</span>
+            <strong class="showcase-frame__label">{{ item.label }}</strong>
+          </div>
+          <span class="showcase-frame__location">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            {{ item.location }}
+          </span>
+        </div>
+
+        <!-- Corner brackets -->
+        <span class="showcase-frame__tl" aria-hidden="true"></span>
+        <span class="showcase-frame__br" aria-hidden="true"></span>
+
+      </article>
+    }
+  </div>
+
+  <!-- CTA bar -->
+  <div class="showcase__cta">
+    <p class="showcase__cta-text">
+      These results aren't exceptional — they're the new normal with our platform.
+    </p>
+    <a href="#" class="showcase__cta-btn">
+      View All Case Studies
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12,5 19,12 12,19"/>
+      </svg>
+    </a>
+  </div>
+
+</section>

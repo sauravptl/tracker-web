@@ -83,5 +83,9 @@ export const routes: Routes = [
     loadComponent: () => import('./features/onboarding/onboarding.component').then(m => m.OnboardingComponent),
     canActivate: [authGuard]
   },
+  {
+    path: 'real-estate',
+    loadComponent: () => import('./features/real-estate-agency/real-estate-agency.component').then(m => m.RealEstateAgencyComponent)
+  },
   { path: '**', redirectTo: 'login' }
 ];
