@@ -4,8 +4,10 @@ import { TaskService } from '../../core/services/task.service';
 import { TimeLogService } from '../../core/services/time-log.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
-import { MockTaskService, MockTimeLogService, MockAuthService, MockUserService } from '../../core/testing/mocks';
+import { LeaveRequestService } from '../../core/services/leave-request.service';
+import { MockTaskService, MockTimeLogService, MockAuthService, MockUserService, MockLeaveRequestService } from '../../core/testing/mocks';
 import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 
 describe('DashboardComponent', () => {
   let component: DashboardComponent;
@@ -14,12 +16,13 @@ describe('DashboardComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DashboardComponent],
+      imports: [DashboardComponent, NoopAnimationsModule],
       providers: [
         { provide: TaskService, useClass: MockTaskService },
         { provide: TimeLogService, useClass: MockTimeLogService },
         { provide: AuthService, useClass: MockAuthService },
         { provide: UserService, useClass: MockUserService },
+        { provide: LeaveRequestService, useClass: MockLeaveRequestService },
         provideCharts(withDefaultRegisterables())
       ]
     }).compileComponents();
@@ -35,5 +38,9 @@ describe('DashboardComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should have empty task count initially', () => {
+    expect(component.myTasksCount()).toBe(0);
   });
 });

@@ -19,4 +19,24 @@ describe('TimeLogService', () => {
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
+
+  it('createTimeLog method exists', () => {
+    expect(typeof service.createTimeLog).toBe('function');
+  });
+
+  it('getRecentLogs method exists', () => {
+    expect(typeof service.getRecentLogs).toBe('function');
+  });
+
+  it('getTodayLogs method exists', () => {
+    expect(typeof service.getTodayLogs).toBe('function');
+  });
+
+  it('getWeekLogs method exists', () => {
+    expect(typeof service.getWeekLogs).toBe('function');
+  });
+
+  it('getLogsInRange method exists', () => {
+    expect(typeof service.getLogsInRange).toBe('function');
+  });
 });

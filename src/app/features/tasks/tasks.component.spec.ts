@@ -1,9 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TasksComponent } from './tasks.component';
 import { TaskService } from '../../core/services/task.service';
+import { ProjectService } from '../../core/services/project.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { UserService } from '../../core/services/user.service';
-import { MockTaskService, MockAuthService, MockUserService } from '../../core/testing/mocks';
+import { MockTaskService, MockProjectService, MockAuthService, MockUserService } from '../../core/testing/mocks';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { ReactiveFormsModule } from '@angular/forms';
 
@@ -17,6 +18,7 @@ describe('TasksComponent', () => {
       imports: [TasksComponent, DragDropModule, ReactiveFormsModule],
       providers: [
         { provide: TaskService, useClass: MockTaskService },
+        { provide: ProjectService, useClass: MockProjectService },
         { provide: AuthService, useClass: MockAuthService },
         { provide: UserService, useClass: MockUserService }
       ]
