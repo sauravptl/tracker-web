@@ -101,13 +101,8 @@
   gap: 1rem;
 }
 
-/* Item placements */
-.showcase-frame:nth-child(1) { grid-column: 1 / 5;  grid-row: 1 / 3; } /* tall  */
-.showcase-frame:nth-child(2) { grid-column: 5 / 9;  grid-row: 1 / 2; } /* square */
-.showcase-frame:nth-child(3) { grid-column: 9 / 13; grid-row: 1 / 2; } /* square */
-.showcase-frame:nth-child(4) { grid-column: 5 / 9;  grid-row: 2 / 3; } /* square */
-.showcase-frame:nth-child(5) { grid-column: 9 / 13; grid-row: 2 / 4; } /* tall  */
-.showcase-frame:nth-child(6) { grid-column: 1 / 9;  grid-row: 3 / 4; } /* wide  */
+/* Item placements are data-driven via [style.grid-column] / [style.grid-row]
+   Angular bindings in showcase.component.html — no nth-child needed. */
 
 /* Collapsed to stacked on mobile */
 @media (max-width: 767px) {
@@ -117,22 +112,22 @@
     gap: 0.75rem;
   }
 
-  .showcase-frame:nth-child(n) {
-    grid-column: auto;
-    grid-row: auto;
+  /* Override data-bound inline grid placements on small screens */
+  .showcase-frame {
+    grid-column: auto !important;
+    grid-row: auto !important;
   }
 
-  .showcase-frame--tall  { grid-column: span 1; }
-  .showcase-frame--wide  { grid-column: span 2; }
-  .showcase-frame--square { grid-column: span 1; }
+  .showcase-frame--wide  { grid-column: 1 / -1 !important; }
 }
 
 @media (max-width: 480px) {
   .showcase__grid {
     grid-template-columns: 1fr;
   }
-  .showcase-frame:nth-child(n) {
-    grid-column: 1 / -1;
+  .showcase-frame {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
   }
 }
 

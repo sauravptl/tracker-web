@@ -16,7 +16,12 @@
   <!-- Masonry grid -->
   <div class="showcase__grid" role="list">
     @for (item of items; track item.label) {
-      <article class="showcase-frame showcase-frame--{{ item.span }}" role="listitem">
+      <article
+        class="showcase-frame showcase-frame--{{ item.span }}"
+        role="listitem"
+        [style.grid-column]="item.gridColumn"
+        [style.grid-row]="item.gridRow"
+      >
 
         <!-- Photo placeholder -->
         <div class="showcase-frame__photo" [attr.aria-label]="'85mm cinematic photography placeholder — ' + item.label">
