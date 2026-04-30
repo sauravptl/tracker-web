@@ -4,13 +4,12 @@ import { Firestore } from '@angular/fire/firestore';
 
 describe('ScreenshotService', () => {
   let service: ScreenshotService;
-  const firestoreSpy = jasmine.createSpyObj('Firestore', ['_']);
 
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
         ScreenshotService,
-        { provide: Firestore, useValue: firestoreSpy }
+        { provide: Firestore, useValue: {} }
       ]
     });
     service = TestBed.inject(ScreenshotService);
