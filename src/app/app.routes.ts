@@ -4,6 +4,7 @@ import { LoginComponent } from './features/auth/login.component';
 import { RegisterComponent } from './features/auth/register.component';
 import { authGuard } from './core/guards/auth.guard';
 import { pendingApprovalGuard } from './core/guards/pending-approval.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -59,6 +60,21 @@ export const routes: Routes = [
       {
         path: 'settings/team',
         loadComponent: () => import('./features/settings/team.component').then(m => m.TeamSettingsComponent)
+      },
+      {
+        path: 'settings/screenshots',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/settings/screenshot-viewer.component').then(m => m.ScreenshotViewerComponent)
+      },
+      {
+        path: 'settings/screenshots/:userId',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/settings/screenshot-detail.component').then(m => m.ScreenshotDetailComponent)
+      },
+      {
+        path: 'settings/screenshot-settings',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/settings/screenshot-settings.component').then(m => m.ScreenshotSettingsComponent)
       }
     ]
   },

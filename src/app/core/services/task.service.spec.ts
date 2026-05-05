@@ -19,4 +19,20 @@ describe('TaskService', () => {
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
+
+  it('getTasks method exists', () => {
+    expect(typeof service.getTasks).toBe('function');
+  });
+
+  it('createTask method exists', () => {
+    expect(typeof service.createTask).toBe('function');
+  });
+
+  it('updateTask method exists', () => {
+    expect(typeof service.updateTask).toBe('function');
+  });
+
+  it('deleteTask method exists', () => {
+    expect(typeof service.deleteTask).toBe('function');
+  });
 });
